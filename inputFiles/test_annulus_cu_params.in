@@ -1,0 +1,24 @@
+# TEST INPUT FILE
+
+# output directory
+flower_forcing_yield01
+
+# grid dimensions
+#12 9 2
+#24 9 4
+12 9 4
+
+# domain dimensions
+0.75e-3 1.5e-3 0.3e-3
+
+# lambda and mu and density
+126.48e9 46.5e9 8.93e3
+
+# number gauss points
+2 2 2
+
+# final time, and steps
+2.0e-5 8000
+
+# plasticity parameters m, n, eps_p0, eps_dot_p0, yield strain
+2.0 3.2258 0.02245 5.0e5 0.001935
