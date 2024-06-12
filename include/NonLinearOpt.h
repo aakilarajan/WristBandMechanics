@@ -68,7 +68,7 @@
 
 
 #define MAXLINE 1024
-#define DIM 2
+#define DIM 3
 #define DIM_IP 2
 #define DIM3 3
 #define PI 3.14159
@@ -226,9 +226,10 @@ namespace compressed_strip
 
     Vector<double> mass_vector;
 
-    Compressible_NeoHookean nh;
+    // Compressible_NeoHookean nh;
 
-    std::vector<J2Isotropic> elmMats;
+    // std::vector<J2Isotropic> elmMats;
+    std::vector<LinearElastic> elmMats;
 
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;
@@ -272,8 +273,10 @@ namespace compressed_strip
     unsigned int qy = 2;
     unsigned int qz = 2;
 
-    double mu = 1.0;
-    double lambda = 1.0;
+    // double mu = 1.0;
+    // double lambda = 1.0;
+    double Elas_mod = 1.0;
+    double nu_poi_ratio = 1.0;
 
     double V_tot_ratio = 0.0;
     double R_filter = 1.0;

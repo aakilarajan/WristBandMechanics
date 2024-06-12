@@ -28,7 +28,7 @@
 #define MU_VALUE 1.0
 #define NU_VALUE 0.0
 
-#define DIM 2
+#define DIM 3
 #define DIM_IP 2
 #define DIM3 3
 #define PI 3.14159
@@ -207,38 +207,47 @@ namespace compressed_strip
   void ElasticProblem::create_mesh()
   {
 
-    Point<2> center2;
-    center2(0) = 0.0;
-    center2(1) = 0.0;
-    GridGenerator::hyper_shell(triangulation, center2, domain_dimensions[0], domain_dimensions[1], grid_dimensions[0], false);
-    Point<DIM> pnt;
-    pnt[0] = 0.0;
-    pnt[1] = 0.0;
+    Point<DIM> corner1, corner2;
+    for (unsigned int i = 0; i<DIM ;  i++)
+      corner1[i] = 0.0;
 
-    PolarManifold<DIM> polar_manifold(pnt);
-    triangulation.set_all_manifold_ids(1);
-    triangulation.set_all_manifold_ids_on_boundary(0, 1);
-    triangulation.set_manifold(1, polar_manifold);
-    for(unsigned int i = 0; i < grid_dimensions[2]; i++)
-    {
-      typename Triangulation<DIM>::active_cell_iterator cell =
-       triangulation.begin_active(), endc = triangulation.end();
-      for (; cell!=endc; ++cell)
-      {
-        cell->set_refine_flag(RefinementCase<DIM>::cut_xy);
-      }
-      triangulation.execute_coarsening_and_refinement();
-    }
+    for (unsigned int i = 0; i<DIM ;  i++)
+      corner2[i] = domain_dimensions[i];
+
+    GridGenerator::hyper_rectangle(triangulation, corner1, corner2, true);
+
+    // GridGenerator::hyper_shell(triangulation, center2, domain_dimensions[0], domain_dimensions[1], grid_dimensions[0], false);
+    // Point<DIM> pnt;
+    // pnt[0] = 0.0;
+    // pnt[1] = 0.0;
+
+    // PolarManifold<DIM> polar_manifold(pnt);
+    // triangulation.set_all_manifold_ids(1);
+    // triangulation.set_all_manifold_ids_on_boundary(0, 1);
+    // triangulation.set_manifold(1, polar_manifold);
+    // for(unsigned int i = 0; i < grid_dimensions[]; i++)
+    // {
+    //   typename Triangulation<DIM>::active_cell_iterator cell =
+    //    triangulation.begin_active(), endc = triangulation.end();
+    //   for (; cell!=endc; ++cell)
+    //   {
+    //     cell->set_refine_flag(RefinementCase<DIM>::cut_xy);
+    //   }
+    //   triangulation.execute_coarsening_and_refinement();
+    // }
+
+    for (unsigned int i = 0; i < 3; ++i)
+      triangulation.refine_global();
 
 
-    GridTools::transform(
-         [](const Point<DIM> &in) {
-           double alpha = 2.5e-4;
-           double r = sqrt(in[0]*in[0] + in[1]*in[1] + 1.0e-12);
-           double theta = atan2(in[1],in[0]);
-           return Point<DIM>(in[0]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*cos(theta), in[1]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*sin(theta));
-         },
-         triangulation);
+    // GridTools::transform(
+    //      [](const Point<DIM> &in) {
+    //        double alpha = 2.5e-4;
+    //        double r = sqrt(in[0]*in[0] + in[1]*in[1] + 1.0e-12);
+    //        double theta = atan2(in[1],in[0]);
+    //        return Point<DIM>(in[0]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*cos(theta), in[1]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*sin(theta));
+    //      },
+    //      triangulation);
 
 //    GridTools::transform([](const Point<DIM> &in) {return Point<DIM> ( 2.0*in[0],1.0*in[1]);}, triangulation);
 
@@ -305,12 +314,15 @@ namespace compressed_strip
 
     QGauss<1> quad_x(qx);
     QGauss<1> quad_y(qy);
+    QGauss<1> quad_z(qz);
 
-    problemQuadrature = QAnisotropic<DIM>(quad_x, quad_y);
+    problemQuadrature = QAnisotropic<DIM>(quad_x, quad_y, quad_z);
 
     pressure = Epsp_eff;
 
     postprocess = new Compute_eps_p(&Epsp_eff, &pressure);
+
+    output_results(0);
 
   }
 
@@ -347,20 +359,21 @@ namespace compressed_strip
 
   void ElasticProblem::solve_forward_problem()
   {
-	double f = 0.0;
-	double area_impactor = PI*(1.0e-2)*(1.0e-2);
+	// double f = 0.0;
+	// double area_impactor = PI*(1.0e-2)*(1.0e-2);
 
     for(unsigned int i = 0; i < N; i ++)
      {
-       elmMats[i].set_modulii(lambda, mu, n_, m_, eps_p_0, eps_p_0_dot, yield);
+       elmMats[i] = LinearElastic(Elas_mod, nu_poi_ratio);
      }
+
     present_solution = 0.0;
-    velocity = 0.0;
-    accel = 0.0;
-    lambdar = 1.0;
-//    lambdar_dot = -100.0/domain_dimensions[2];
-    lambdar_dot = 0.0;
-    lambdar_ddot = 0.0;
+//     velocity = 0.0;
+//     accel = 0.0;
+//     lambdar = 1.0;
+// //    lambdar_dot = -100.0/domain_dimensions[2];
+//     lambdar_dot = 0.0;
+//     lambdar_ddot = 0.0;
 
     std::fill(Epsp_eff.begin(), Epsp_eff.end(), 0.0);
     std::fill(Epsp.begin(), Epsp.end(), 0.0);
@@ -369,136 +382,91 @@ namespace compressed_strip
     system_rhs = 0.0;
 
     area = PI*(pow(domain_dimensions[1], 2.0) - pow(domain_dimensions[0], 2.0));
-    assemble_mass_matrix();
+    // assemble_mass_matrix();
 
-    double time_data[load_steps] = {};
-    double lambdar_hist[load_steps] = {};
-    double lambdardot_hist[load_steps] = {};
-    double lambdarddot_hist[load_steps] = {};
+    // double time_data[load_steps] = {};
+    // double lambdar_hist[load_steps] = {};
+    // double lambdardot_hist[load_steps] = {};
+    // double lambdarddot_hist[load_steps] = {};
 
-    for(unsigned int k = 1; k <= load_steps; k ++)
-    {
-//	  assemble_system_rhs();
-      parallel_assemble_rhs(k);
-      apply_boundaries_to_rhs(&system_rhs, &homo_dofs);
-      accel = 0.0;
 
-      for(unsigned int i = 0; i < dof_handler.n_dofs(); i ++)
-      {
-        if(homo_dofs[i] == true)
-          accel[i] = 0.0;
-        else
-          accel[i] = (1.0/mass_vector[i])*system_rhs[i];
-      }
+    // solving it one iteration. write a newton update here later
 
-      velocity.add(dT, accel);
-      present_solution.add(dT, velocity);
+    // parallel_assemble_rhs();
+    assemble_system_rhs();
+    apply_boundaries_to_rhs(&system_rhs, &homo_dofs);
 
-      if (k*dT <= 10.0e-6)
-        f = -(7.85e3)*(5.1722e3)*(2.85e4)*area_impactor;
-      else
-        f = 0.0;
-
-//      lambdar_ddot = -3.0/(domain_dimensions[2]*domain_dimensions[2]* area * density)*S33_AreaAvg;
-      lambdar_ddot = 3.0/(domain_dimensions[2]*domain_dimensions[2]* area * density)*(-S33_AreaAvg + f*area);
-      lambdar_dot += lambdar_ddot*dT;
-      lambdar += lambdar_dot*dT;
-      time_data[k] = k*dT;
-      lambdar_hist[k] = lambdar;
-      lambdardot_hist[k] = lambdar_dot;
-      lambdarddot_hist[k] = lambdar_ddot;
-
-      if(k%100 == 0)
-      {
-        std::cout << "    Iteration : " << k << " Time : " <<  1.0e6*dT*k << " us. ";
-        std::cout << "  top surface Velocity : " << lambdar_dot << ",  stretch_zz : " << lambdar;
-        std::cout << std::endl;
-        output_results(k);
-      }
-
-    }
-
-    std::string filenameStress(output_directory);
-
-    struct stat st2;
-    if (stat(filenameStress.c_str(), &st2) == -1)
-      mkdir(filenameStress.c_str(), 0700);
-
-    filenameStress += "/lambda";
-    filenameStress += ".csv";
-
-    std::ofstream out(filenameStress.c_str());
-    for(unsigned int k = 1; k <= load_steps; k ++)
-      out << std::setprecision(14) << time_data[k] << "," << lambdar_hist[k] << "," << lambdardot_hist[k] << "," << lambdarddot_hist[k] << std::endl;
-
-  }
-
-  void ElasticProblem::assemble_mass_matrix()
-  {
-    // Assembling the system matrix. I chose to make the rhs and system matrix assemblies separate,
-    // because we only do one at a time anyways in the newton method.
-
-    mass_matrix = 0.0;
-    mass_vector = 0.0;
-
-    FEValues<DIM> fe_values (fe, problemQuadrature,
-                             update_values  |
-                             update_quadrature_points | update_JxW_values);
-
-    const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-
-    unsigned int n_q_points = problemQuadrature.size();
-
-    FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
-
-    std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-
-    typename DoFHandler<DIM>::active_cell_iterator cell = dof_handler.begin_active(),
-                                                   endc = dof_handler.end();
-    for (; cell!=endc; ++cell)
-    {
-      cell_matrix = 0.0;
-
-      fe_values.reinit (cell);
-
-      unsigned int cell_index = cell->active_cell_index();
-
-//      double next_phi = phi[cell_index];
-//      double phi_pow = pow(next_phi, p);
-
-      for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-      {
-
-        for (unsigned int n = 0; n < dofs_per_cell; ++n)
-        {
-          const unsigned int component_n = fe.system_to_component_index(n).first;
-
-          for (unsigned int m = 0; m < dofs_per_cell; ++m)
-          {
-            const unsigned int component_m = fe.system_to_component_index(m).first;
-
-            if(component_m != component_n)
-              continue;
-            else
-            {
-              cell_matrix(n,m) +=  density*fe_values.shape_value(n, q_point)*fe_values.shape_value(m, q_point)
-                                 *fe_values.JxW(q_point); //
-            }
-          }
-        }
-      }
-
-      cell->get_dof_indices (local_dof_indices);
-
-      for (unsigned int n=0; n<dofs_per_cell; ++n)
-        for (unsigned int m=0; m<dofs_per_cell; ++m)
-        {
-          mass_vector[local_dof_indices[n]] += cell_matrix(n,m);
-        }
-    }
+    solve_system();
 
 
   }
+
+//   void ElasticProblem::assemble_mass_matrix()
+//   {
+//     // Assembling the system matrix. I chose to make the rhs and system matrix assemblies separate,
+//     // because we only do one at a time anyways in the newton method.
+
+//     mass_matrix = 0.0;
+//     mass_vector = 0.0;
+
+//     FEValues<DIM> fe_values (fe, problemQuadrature,
+//                              update_values  |
+//                              update_quadrature_points | update_JxW_values);
+
+//     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
+
+//     unsigned int n_q_points = problemQuadrature.size();
+
+//     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
+
+//     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
+
+//     typename DoFHandler<DIM>::active_cell_iterator cell = dof_handler.begin_active(),
+//                                                    endc = dof_handler.end();
+//     for (; cell!=endc; ++cell)
+//     {
+//       cell_matrix = 0.0;
+
+//       fe_values.reinit (cell);
+
+//       unsigned int cell_index = cell->active_cell_index();
+
+// //      double next_phi = phi[cell_index];
+// //      double phi_pow = pow(next_phi, p);
+
+//       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+//       {
+
+//         for (unsigned int n = 0; n < dofs_per_cell; ++n)
+//         {
+//           const unsigned int component_n = fe.system_to_component_index(n).first;
+
+//           for (unsigned int m = 0; m < dofs_per_cell; ++m)
+//           {
+//             const unsigned int component_m = fe.system_to_component_index(m).first;
+
+//             if(component_m != component_n)
+//               continue;
+//             else
+//             {
+//               cell_matrix(n,m) +=  density*fe_values.shape_value(n, q_point)*fe_values.shape_value(m, q_point)
+//                                  *fe_values.JxW(q_point); //
+//             }
+//           }
+//         }
+//       }
+
+//       cell->get_dof_indices (local_dof_indices);
+
+//       for (unsigned int n=0; n<dofs_per_cell; ++n)
+//         for (unsigned int m=0; m<dofs_per_cell; ++m)
+//         {
+//           mass_vector[local_dof_indices[n]] += cell_matrix(n,m);
+//         }
+//     }
+
+
+//   }
 
 
 
@@ -830,7 +798,7 @@ namespace compressed_strip
 
       // read in the lambda and mu and density
       getNextDataLine(fid, nextLine, MAXLINE, &endOfFileFlag);
-      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &lambda, &mu, &density);
+      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &Elas_mod, &nu_poi_ratio, &density);
       if(valuesWritten != 3)
       {
         fileReadErrorFlag = true;

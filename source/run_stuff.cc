@@ -25,6 +25,7 @@ int main ()
             << std::endl << std::endl;
 
   ep.solve_forward_problem();
+  exit(0);
 
   return(0);
 }
