@@ -226,9 +226,10 @@ using namespace dealii;
   class LinearElastic
   {
     public:
+    LinearElastic(){};
 
     virtual ~LinearElastic(){};
-    LinearElastic(double E, double nu)
+    void set_internal(double E, double nu)
     {
       mu = E/(2.0*(1 + nu));
       lambda = E*nu/((1 + nu)*(1 - 2.0*nu));

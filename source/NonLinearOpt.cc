@@ -364,7 +364,7 @@ namespace compressed_strip
 
     for(unsigned int i = 0; i < N; i ++)
      {
-       elmMats[i] = LinearElastic(Elas_mod, nu_poi_ratio);
+       elmMats[i].set_internal(Elas_mod, nu_poi_ratio);
      }
 
     present_solution = 0.0;
@@ -396,7 +396,7 @@ namespace compressed_strip
     assemble_system_rhs();
     apply_boundaries_to_rhs(&system_rhs, &homo_dofs);
 
-    solve_system();
+    // solve_system();
 
 
   }
@@ -521,11 +521,11 @@ namespace compressed_strip
 
         Tensor<2,DIM3> *nextEpsp = &(Epsp[indx]);
         double *nextEpsp_eff  = &(Epsp_eff[indx]);
-        elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
+        // elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
         get_strain_223(old_solution_gradients[q_point], lambdar, Eps);
 
 
-        elmMats[cell_index].get_dE(Eps, dW_dE);
+        // elmMats[cell_index].get_dE(Eps, dW_dE);
         ave_epsp_eff[cell_index] += inv_q_points*Epsp_eff[indx];
 
         for (unsigned int n = 0; n < dofs_per_cell; ++n)
@@ -849,7 +849,7 @@ namespace compressed_strip
     else
       std::cout << "Input file successfully read" << std::endl;
 
-    K = ((1.0*DIM)*(lambda) + 2.0*(mu))/(1.0*DIM);
+    // K = ((1.0*DIM)*(lambda) + 2.0*(mu))/(1.0*DIM);
 
     // make the output directory
     struct stat st;
@@ -951,10 +951,10 @@ namespace compressed_strip
 
       Tensor<2,DIM3> *nextEpsp = &((Epsp)[indx]);
       double *nextEpsp_eff  = &((Epsp_eff)[indx]);
-      elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
+      // elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
       get_strain_223(old_solution_gradients[q_point], lambdar, Eps);
 
-      elmMats[cell_index].get_dE(Eps, dW_dE);
+      // elmMats[cell_index].get_dE(Eps, dW_dE);
       ave_epsp_eff[cell_index] += Epsp_eff[indx]*scratch.fe_values.JxW(q_point);
       pressure[indx] = K*trace(Eps);
       ave_pressure[cell_index] += K*trace(Eps)*scratch.fe_values.JxW(q_point);
