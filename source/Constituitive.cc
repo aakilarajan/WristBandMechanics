@@ -584,48 +584,143 @@ using namespace dealii;
     dW_dFdTheta = -(3.0*lambda + 2.0*mu)*alpha*F;
   }
 
-  inline
-  double LinearElastic::get_energy(Tensor<2, DIM3> &grad_u)
+
+  // Linear Elasticity but in large deformation
+  
+  // inline
+  // double LinearElastic::get_energy(Tensor<2, DIM3> &grad_u)
+  // {
+  //   double W = 0.0;
+
+  //   Tensor<2, DIM3> epsilon;
+  //   for (unsigned int i = 0; i < DIM3; i ++)
+  //     for (unsigned int j = 0; j < DIM3; j ++)
+  //     {
+  //       epsilon[i][j] = 0.5*(grad_u[i][j] + grad_u[j][i]);
+  //       W += epsilon[i][j]*epsilon[i][j];
+  //     }
+
+  //   W *= mu;
+  //   W += 0.5*(lambda)*trace(epsilon)*trace(epsilon);
+
+  //   return W;
+  // }
+
+  // Tensor<2, DIM3> LinearElastic::get_sigma(Tensor<2, DIM3> &grad_u)
+  // {
+  //   Tensor<2, DIM3> sig;
+  //   Tensor<2, DIM3> epsilon;
+  //   Tensor<2, DIM3> Id;
+  //   for (unsigned int i = 0; i < DIM3; i ++)
+  //     for (unsigned int j = 0; j < DIM3; j ++)
+  //     {
+  //       epsilon[i][j] = 0.5*(grad_u[i][j] + grad_u[j][i]);
+
+  //       if(i == j) Id[i][j] = 1.0;
+  //     }
+
+  //   sig = lambda*trace(epsilon)*Id + 2.0*(mu)*epsilon;
+
+
+  //   return sig;
+  // }
+
+  // Tensor<4, DIM3> LinearElastic::get_C()
+  // {
+  //   return C;
+  // }
+
+
+	LinearElastic::LinearElastic(double mu_, double nu_)
+	{
+		  mu = mu_;
+		  nu = nu_;
+		  bulk = 2*mu*(1+nu)/(3*(1-2*nu));
+	}
+
+	void LinearElastic::init(double mu_, double nu_)
+	{
+		  mu = mu_;
+		  nu = nu_;
+		  bulk = 2*mu*(1+nu)/(3*(1-2*nu));
+	}
+
+
+
+  double LinearElastic::get_energy(Tensor<2, DIM> &grad_u)
   {
     double W = 0.0;
+    Tensor<2,DIM> F;
 
-    Tensor<2, DIM3> epsilon;
-    for (unsigned int i = 0; i < DIM3; i ++)
-      for (unsigned int j = 0; j < DIM3; j ++)
-      {
-        epsilon[i][j] = 0.5*(grad_u[i][j] + grad_u[j][i]);
-        W += epsilon[i][j]*epsilon[i][j];
-      }
+    for (unsigned int t = 0; t < DIM; t++){
+        for (unsigned int v = 0; v < DIM; v ++){
+         F[t][v] = (t==v) ? grad_u[t][v]+1.0 : grad_u[t][v];
+        }}
 
-    W *= mu;
-    W += 0.5*(lambda)*trace(epsilon)*trace(epsilon);
+    Tensor<2, DIM> C = contract<1,0>( transpose(F), F );
+    W = 0.5*mu*( trace(C)-3-2*log(determinant(F)) ) + 0.5*bulk*( determinant(F)-1 )*( determinant(F)-1 ); // double_contract<0,0,1,1>(double_contract<2, 0, 3, 1>(C, eps), eps);
 
     return W;
   }
 
-  Tensor<2, DIM3> LinearElastic::get_sigma(Tensor<2, DIM3> &grad_u)
+  void LinearElastic::get_dWdF(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &dWdF)
   {
-    Tensor<2, DIM3> sig;
-    Tensor<2, DIM3> epsilon;
-    Tensor<2, DIM3> Id;
-    for (unsigned int i = 0; i < DIM3; i ++)
-      for (unsigned int j = 0; j < DIM3; j ++)
-      {
-        epsilon[i][j] = 0.5*(grad_u[i][j] + grad_u[j][i]);
 
-        if(i == j) Id[i][j] = 1.0;
-      }
+	  Tensor<2,DIM> F;
 
-    sig = lambda*trace(epsilon)*Id + 2.0*(mu)*epsilon;
+		  for (unsigned int t = 0; t < DIM; t++){
+			  for (unsigned int v = 0; v < DIM; v ++){
+				  F[t][v] = (t==v) ? grad_u[t][v]+1.0 : grad_u[t][v];
+			  }}
 
+	  dWdF = mu*( F - transpose(invert(F)) ) + bulk*determinant(F)*(determinant(F)-1)*transpose(invert(F));
 
-    return sig;
   }
 
-  Tensor<4, DIM3> LinearElastic::get_C()
+  void LinearElastic::get_dWdF2(Tensor<2, DIM> &grad_u, Tensor<4, DIM> &dWdF2)
   {
-    return C;
+
+	  Tensor<2,DIM> F, Finv;
+
+	  for (unsigned int t = 0; t < DIM; t++){
+		  for (unsigned int v = 0; v < DIM; v ++){
+			  F[t][v] = (t==v) ? grad_u[t][v]+1.0 : grad_u[t][v];
+		  }}
+
+	  Finv = invert(F); double J = determinant(F);
+
+	  for (unsigned int i = 0; i < DIM; i++){
+	 		  for (unsigned int j = 0; j < DIM; j++){
+		 		  for (unsigned int k = 0; k < DIM; k++){
+			 		  for (unsigned int l = 0; l < DIM; l++){
+			 			  dWdF2[i][j][k][l]  =  ((i == k) && (j ==l) ? mu : 0.0)
+			 					  + mu*Finv[j][k]*Finv[l][i]
+								  + bulk*(2*J*J-J)*Finv[j][i]*Finv[l][k]
+			 					  - bulk*(J*J-J)*Finv[j][k]*Finv[l][i];
+			 		  }
+		 		  }
+	 		  }
+	  	  }
   }
+
+  void LinearElastic::get_F(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &F){
+	  for (unsigned int t = 0; t < DIM; t++){
+	  		  for (unsigned int v = 0; v < DIM; v ++){
+	  			  F[t][v] = (t==v) ? grad_u[t][v]+1.0 : grad_u[t][v];
+	  		  }}
+  }
+
+  void LinearElastic::get_C(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &C){
+
+	  Tensor<2,DIM> F;
+
+	 		  for (unsigned int t = 0; t < DIM; t++){
+	 			  for (unsigned int v = 0; v < DIM; v ++){
+	 				  F[t][v] = (t==v) ? grad_u[t][v]+1.0 : grad_u[t][v];
+	 			  }}
+	 C = contract<1,0>(transpose(F),F);
+  }
+
 
   PowerLaw::PowerLaw() {}
 

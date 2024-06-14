@@ -63,17 +63,6 @@ namespace compressed_strip
   }
 
 
-  inline void get_strain_223(std::vector<Tensor<1,DIM> > &old_solution_gradient, double lambda,
-      Tensor<2,DIM3> &Eps)
-  {
-    Eps = 0.0;
-    for (unsigned int i = 0; i < DIM; i ++)
-      for(unsigned int j = 0; j < DIM; j++)
-        Eps[i][j] += 0.5*(old_solution_gradient[i][j] + old_solution_gradient[j][i]);
-
-    Eps[2][2] = lambda - 1.0;
-  }
-
   inline
   void transform_stress(Tensor<2,DIM> &P, Point<DIM> &q_point, Tensor<2,DIM> &out)
   {
@@ -90,62 +79,7 @@ namespace compressed_strip
   }
 
 
-  //postprocess shit
-  void Compute_eps_p::evaluate_vector_field(const DataPostprocessorInputs::Vector< DIM > &   input_data,
-                                            std::vector< Vector< double > > &   computed_quantities) const
-  {
-    unsigned int n_q_points = input_data.solution_values.size();
 
-
-    // typename DoFHandler<DIM>::cell_iterator cell = input_data.template get_cell<DoFHandler<DIM>>();
-    typename DoFHandler<DIM>::cell_iterator cell = input_data.get_cell<DIM>();
-
-
-//    nu->value_list (input_data.evaluation_points, nu_values);
-//    mu->value_list (input_data.evaluation_points, mu_values);
-
-    unsigned int cell_indx = cell->active_cell_index();
-    for(unsigned int i = 0; i < n_q_points; i++)
-    {
-      unsigned int next_indx = cell_indx*n_q_points + i;
-      computed_quantities[i][0] = (*q)[next_indx];
-      computed_quantities[i][1] = (*pressure)[next_indx];
-
-    }
-  }
-
-  std::vector<std::string> Compute_eps_p::get_names() const
-  {
-    std::vector<std::string> output_names;
-    output_names.push_back("q");
-    output_names.push_back("pressure");
-    return output_names;
-  }
-
-  UpdateFlags Compute_eps_p::get_needed_update_flags() const
-  {
-    return update_quadrature_points;
-
-//    return update_gradients;
-  }
-
-  std::vector<DataComponentInterpretation::DataComponentInterpretation> Compute_eps_p::get_data_component_interpretation () const
-  {
-    std::vector<DataComponentInterpretation::DataComponentInterpretation> interpretation (2);
-    interpretation[0] = DataComponentInterpretation::component_is_scalar;
-    interpretation[1] = DataComponentInterpretation::component_is_scalar;
-
-    return interpretation;
-  }
-
-
-//  void timeHistory::get_instance(unsigned int n, std::vector<double> *eps_p_eff_,
-//                       std::vector<Tensor<2,DIM>>*eps_p_, Vector<double> *u_)
-//  {
-//    eps_p_eff_ = &(eps_p_eff[n]);
-//    eps_p_ = &(eps_p[n]);
-//    u_ = &(u[n]);
-//  }
 
   // computes right hand side values if we were to have body forces. But it just
   // always returns zeros because we don't.
@@ -200,7 +134,7 @@ namespace compressed_strip
   ElasticProblem::~ElasticProblem ()
   {
     dof_handler.clear ();
-    delete postprocess;
+    // delete postprocess;
   }
 
 
@@ -255,36 +189,36 @@ namespace compressed_strip
 
   }
 
-  void ElasticProblem::setup_system ()
+  void ElasticProblem::setup_system (const bool initial_step)
   {
-    // Sets up system. Makes the constraint matrix, and reinitializes the
-    // vectors and matricies used throughout to be the proper size.
+
+    if (initial_step)
+    {
+
+    current_time = 0.0;
 
     N = triangulation.n_active_cells();
-    if (fileLoadFlag == false)
-    {
       dof_handler.distribute_dofs (fe);
-    }
 
     elmMats.resize(N);
-
+    for (unsigned int i = 0; i < N; ++i)
+      elmMats[i].init(mu, nu);
 
     double nq_points = qy*qx*qz;
-    Epsp_eff.resize(N*nq_points);
-    Epsp.resize(N*nq_points);
-
-    ave_epsp_eff.reinit(N);
-    ave_pressure.reinit(N);
-
     dof_handler.distribute_dofs (fe);
-
     present_solution.reinit (dof_handler.n_dofs());
-    velocity.reinit (dof_handler.n_dofs());
-    accel.reinit (dof_handler.n_dofs());
-
-    mass_vector.reinit(dof_handler.n_dofs());
-
+    solution_u.reinit (dof_handler.n_dofs());
+    solution_u1.reinit (dof_handler.n_dofs());
+    
+    present_solution = 0.0;
+    solution_u1 = 0.0;
+    solution_u = 0.0;
     setup_system_constraints();
+
+    }
+
+    newton_update.reinit (dof_handler.n_dofs());
+    newton_update = 0.0;
 
     system_rhs.reinit (dof_handler.n_dofs());
 
@@ -297,15 +231,15 @@ namespace compressed_strip
 
     const unsigned int  number_dofs = dof_handler.n_dofs();
 
-    std::vector<Point<DIM>> support_points(dof_handler.n_dofs());
-    MappingQ1<DIM> mapping;
-    DoFTools::map_dofs_to_support_points(mapping, dof_handler, support_points);
+    // std::vector<Point<DIM>> support_points(dof_handler.n_dofs());
+    // MappingQ1<DIM> mapping;
+    // DoFTools::map_dofs_to_support_points(mapping, dof_handler, support_points);
 
     sparsity_pattern.copy_from (dsp);
 
 
 //    GridTools::distort_random(0.4, triangulation, true);
-    mass_matrix.reinit(sparsity_pattern);
+    // mass_matrix.reinit(sparsity_pattern);
     system_matrix.reinit (sparsity_pattern);
 
     // get the dofs that we will apply dirichlet condition to
@@ -318,13 +252,11 @@ namespace compressed_strip
 
     problemQuadrature = QAnisotropic<DIM>(quad_x, quad_y, quad_z);
 
-    pressure = Epsp_eff;
-
-    postprocess = new Compute_eps_p(&Epsp_eff, &pressure);
-
     output_results(0);
 
   }
+
+
 
   void ElasticProblem::setup_system_constraints ()
   {
@@ -356,117 +288,93 @@ namespace compressed_strip
     }
   }
 
+  void ElasticProblem::initiate_guess()
+  {
+    		std::vector<bool> side_x = {true, false, false};
+		ComponentMask side_x_mask(side_x);
+		DoFTools::extract_boundary_dofs(dof_handler,
+										side_x_mask,
+										selected_dofs_x,
+										{1});
+
+		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+		{
+			if (selected_dofs_x[n])
+				present_solution[n] = (time - dT) * velocity_qs;
+		}
+
+		std::vector<bool> side_yz = {false, true, true};
+		ComponentMask side_yz_mask(side_yz);
+		DoFTools::extract_boundary_dofs(dof_handler,
+										side_yz_mask,
+										selected_dofs_yz,
+										{1});
+
+		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+		{
+			if (selected_dofs_yz[n])
+				present_solution[n] = 0.0;
+		}
+  }
+
 
   void ElasticProblem::solve_forward_problem()
   {
-	// double f = 0.0;
-	// double area_impactor = PI*(1.0e-2)*(1.0e-2);
-
-    for(unsigned int i = 0; i < N; i ++)
-     {
-       elmMats[i].set_internal(Elas_mod, nu_poi_ratio);
-     }
-
-    present_solution = 0.0;
-//     velocity = 0.0;
-//     accel = 0.0;
-//     lambdar = 1.0;
-// //    lambdar_dot = -100.0/domain_dimensions[2];
-//     lambdar_dot = 0.0;
-//     lambdar_ddot = 0.0;
-
-    std::fill(Epsp_eff.begin(), Epsp_eff.end(), 0.0);
-    std::fill(Epsp.begin(), Epsp.end(), 0.0);
-    output_results(0);
-
-    system_rhs = 0.0;
-
-    area = PI*(pow(domain_dimensions[1], 2.0) - pow(domain_dimensions[0], 2.0));
-    // assemble_mass_matrix();
-
-    // double time_data[load_steps] = {};
-    // double lambdar_hist[load_steps] = {};
-    // double lambdardot_hist[load_steps] = {};
-    // double lambdarddot_hist[load_steps] = {};
 
 
-    // solving it one iteration. write a newton update here later
+    unsigned int timestep_number = 1;
+    unsigned int counter = 0;
 
-    // parallel_assemble_rhs();
-    assemble_system_rhs();
-    apply_boundaries_to_rhs(&system_rhs, &homo_dofs);
+    current_time = dT;
+    
+		for (; current_time <= T_final; current_time += dT, ++timestep_number)
+		{
 
-    // solve_system();
+			std::cout << "time step " << timestep_number << " at t= " << current_time << "   " << "--------------------------------------------------------" << std::endl;
 
+			double last_residual_norm = std::numeric_limits<double>::max();
+			counter = 1;
+
+			while ((last_residual_norm > 1.0e-7) && (counter < 10))
+			{ // start newton
+				
+        if (counter == 1)
+				{
+					initiate_guess();
+				}
+				assemble_system_rhs();
+//				output_greyscale();
+				apply_boundaries_and_constraints();
+				solve();
+				last_residual_norm = compute_residual();
+				std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
+				setup_system(false);
+				++counter;
+			} // newton iteration done
+
+
+			//output_forces();
+			calculate_end_disp(current_solution);
+			propagate_u();
+			calculate_end_disp(solution_u);
+
+			out2 = std::fopen(filename2.c_str(), "a");
+			fprintf(out2, "%lg   %lg %lg %lg \n",
+					time, C11, strain11, pk11);
+			fclose(out2);
+
+			out4 = std::fopen(filename4.c_str(), "a");
+			fprintf(out4, "%lg %lg %lg \n",
+					time, total_force_exp, total_force_exp2);
+			fclose(out4);
+
+			if (timestep_number % step_out == 0)
+			{
+				output_results(42069 + (timestep_number));
+			}
+		}
 
   }
-
-//   void ElasticProblem::assemble_mass_matrix()
-//   {
-//     // Assembling the system matrix. I chose to make the rhs and system matrix assemblies separate,
-//     // because we only do one at a time anyways in the newton method.
-
-//     mass_matrix = 0.0;
-//     mass_vector = 0.0;
-
-//     FEValues<DIM> fe_values (fe, problemQuadrature,
-//                              update_values  |
-//                              update_quadrature_points | update_JxW_values);
-
-//     const unsigned int   dofs_per_cell = fe.dofs_per_cell;
-
-//     unsigned int n_q_points = problemQuadrature.size();
-
-//     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
-
-//     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
-
-//     typename DoFHandler<DIM>::active_cell_iterator cell = dof_handler.begin_active(),
-//                                                    endc = dof_handler.end();
-//     for (; cell!=endc; ++cell)
-//     {
-//       cell_matrix = 0.0;
-
-//       fe_values.reinit (cell);
-
-//       unsigned int cell_index = cell->active_cell_index();
-
-// //      double next_phi = phi[cell_index];
-// //      double phi_pow = pow(next_phi, p);
-
-//       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-//       {
-
-//         for (unsigned int n = 0; n < dofs_per_cell; ++n)
-//         {
-//           const unsigned int component_n = fe.system_to_component_index(n).first;
-
-//           for (unsigned int m = 0; m < dofs_per_cell; ++m)
-//           {
-//             const unsigned int component_m = fe.system_to_component_index(m).first;
-
-//             if(component_m != component_n)
-//               continue;
-//             else
-//             {
-//               cell_matrix(n,m) +=  density*fe_values.shape_value(n, q_point)*fe_values.shape_value(m, q_point)
-//                                  *fe_values.JxW(q_point); //
-//             }
-//           }
-//         }
-//       }
-
-//       cell->get_dof_indices (local_dof_indices);
-
-//       for (unsigned int n=0; n<dofs_per_cell; ++n)
-//         for (unsigned int m=0; m<dofs_per_cell; ++m)
-//         {
-//           mass_vector[local_dof_indices[n]] += cell_matrix(n,m);
-//         }
-//     }
-
-
-//   }
 
 
 
@@ -655,91 +563,6 @@ namespace compressed_strip
 
   }
 
-  void ElasticProblem::save_current_state(unsigned int indx, bool firstTime)
-   {
-     // create the output directory if it doesnt exist
-
-     char saved_state_dir[MAXLINE];
-     strcpy(saved_state_dir, output_directory);
-     strcat(saved_state_dir, "/saved_state");
-
-     // see if the directory exists
-     struct stat st;
-     if (stat(saved_state_dir, &st) == -1)
-          mkdir(saved_state_dir, 0700);
-
-
-     char index_char[32];
-     sprintf(index_char, "%u", indx);
-
-     if(firstTime == true)
-     {
-       // Triangulation
-       char triag_file[MAXLINE];
-       strcpy(triag_file, saved_state_dir);
-       strcat(triag_file, "/triag_");
-       strcat(triag_file, index_char);
-       strcat(triag_file, ".dat");
-       std::ofstream triag_out (triag_file);
-       boost::archive::text_oarchive triag_ar(triag_out);
-       triangulation.save(triag_ar, 1);
-
-       // dof handler
-       char dof_file[MAXLINE];
-       strcpy(dof_file, saved_state_dir);
-       strcat(dof_file, "/dof_");
-       strcat(dof_file, index_char);
-       strcat(dof_file, ".dat");
-       std::ofstream dof_out (dof_file);
-       boost::archive::text_oarchive dof_ar(dof_out);
-       dof_handler.save(dof_ar, 1);
-     }
-
-   }
-
-   void ElasticProblem::load_state(unsigned int indx)
-   {
-     // create the output directory
-
-     char input_dir_path[MAXLINE];
-     strcpy(input_dir_path, output_directory);
-     strcat(input_dir_path, "/saved_state");
-     struct stat st;
-     if (stat(input_dir_path, &st) == -1)
-     {
-       std::cout << "Could not find the directory : " << input_dir_path << "\nExiting." <<std::endl;
-       exit(-1);
-     }
-
-     char index_char[32];
-     sprintf(index_char, "%u", indx);
-
-     // Triangulation
-     char triag_file[MAXLINE];
-     strcpy(triag_file, input_dir_path);
-     strcat(triag_file, "/triag_");
-     strcat(triag_file, index_char);
-     strcat(triag_file, ".dat");
-     std::ifstream triag_in (triag_file);
-     boost::archive::text_iarchive triag_ar(triag_in);
-     triangulation.load(triag_ar, 1);
-
-     // df_handler
-     dof_handler.distribute_dofs(fe);
-     char dof_file[MAXLINE];
-     strcpy(dof_file, input_dir_path);
-     strcat(dof_file, "/dof_");
-     strcat(dof_file, index_char);
-     strcat(dof_file, ".dat");
-     std::ifstream dof_in (dof_file);
-     boost::archive::text_iarchive dof_ar(dof_in);
-     dof_handler.load(dof_ar, 1);
-
-
-     fileLoadFlag = true;
-
-   }
-
 
   void ElasticProblem::read_input_file(char* filename)
   {
@@ -798,8 +621,8 @@ namespace compressed_strip
 
       // read in the lambda and mu and density
       getNextDataLine(fid, nextLine, MAXLINE, &endOfFileFlag);
-      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &Elas_mod, &nu_poi_ratio, &density);
-      if(valuesWritten != 3)
+      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &Elas_mod, &nu_poi_ratio);
+      if(valuesWritten != 2)
       {
         fileReadErrorFlag = true;
         goto fileClose;
@@ -824,15 +647,6 @@ namespace compressed_strip
         goto fileClose;
       }
       dT = T_final/(1.0*load_steps);
-
-      // read in the plastic parameters
-      getNextDataLine(fid, nextLine, MAXLINE, &endOfFileFlag);
-      valuesWritten = sscanf(nextLine, "%lg %lg %lg %lg %lg", &m_, &n_, &eps_p_0, &eps_p_0_dot, &yield);
-      if(valuesWritten != 5)
-      {
-        fileReadErrorFlag = true;
-        goto fileClose;
-      }
 
       fileClose:
       {
@@ -913,90 +727,90 @@ namespace compressed_strip
   }
 
 
-  void ElasticProblem::local_assemble_system_rhs (const typename DoFHandler<DIM>::active_cell_iterator &cell,
-      AssemblyScratchData                                  &scratch,
-      RhsAssemblyCopyData                                     &copy_data)
-  {
-    const unsigned int dofs_per_cell   = fe.dofs_per_cell;
-    const unsigned int n_q_points      = scratch.fe_values.get_quadrature().size();
+  // void ElasticProblem::local_assemble_system_rhs (const typename DoFHandler<DIM>::active_cell_iterator &cell,
+  //     AssemblyScratchData                                  &scratch,
+  //     RhsAssemblyCopyData                                     &copy_data)
+  // {
+  //   const unsigned int dofs_per_cell   = fe.dofs_per_cell;
+  //   const unsigned int n_q_points      = scratch.fe_values.get_quadrature().size();
 
-    double inv_q_points = 1.0/(1.0*n_q_points);
+  //   double inv_q_points = 1.0/(1.0*n_q_points);
 
-    Vector<double>       cell_rhs (dofs_per_cell + 1);
+  //   Vector<double>       cell_rhs (dofs_per_cell + 1);
 
-    std::vector<std::vector<Tensor<1,DIM> > > old_solution_gradients(n_q_points, std::vector<Tensor<1,DIM>>(DIM));
+  //   std::vector<std::vector<Tensor<1,DIM> > > old_solution_gradients(n_q_points, std::vector<Tensor<1,DIM>>(DIM));
 
-    Tensor<2,DIM3> Eps;
-    Tensor<2,DIM3> dW_dE;
+  //   Tensor<2,DIM3> Eps;
+  //   Tensor<2,DIM3> dW_dE;
 
-    cell_rhs = 0.0;
+  //   cell_rhs = 0.0;
 
-    scratch.fe_values.reinit (cell);
+  //   scratch.fe_values.reinit (cell);
 
-    scratch.fe_values.get_function_gradients(present_solution, old_solution_gradients);
-    std::vector<Point<DIM>>  q_p = scratch.fe_values.get_quadrature_points();
-    Tensor<2,DIM> rot_stress;
+  //   scratch.fe_values.get_function_gradients(present_solution, old_solution_gradients);
+  //   std::vector<Point<DIM>>  q_p = scratch.fe_values.get_quadrature_points();
+  //   Tensor<2,DIM> rot_stress;
 
-    unsigned int cell_index = cell->active_cell_index();
-
-
-    ave_epsp_eff[cell_index] = 0.0;
-    ave_pressure[cell_index] = 0.0;
+  //   unsigned int cell_index = cell->active_cell_index();
 
 
-    double sig_zz_contrb = 0.0;
-    for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-    {
-      unsigned int indx = cell_index*n_q_points + q_point;
-
-      Tensor<2,DIM3> *nextEpsp = &((Epsp)[indx]);
-      double *nextEpsp_eff  = &((Epsp_eff)[indx]);
-      // elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
-      get_strain_223(old_solution_gradients[q_point], lambdar, Eps);
-
-      // elmMats[cell_index].get_dE(Eps, dW_dE);
-      ave_epsp_eff[cell_index] += Epsp_eff[indx]*scratch.fe_values.JxW(q_point);
-      pressure[indx] = K*trace(Eps);
-      ave_pressure[cell_index] += K*trace(Eps)*scratch.fe_values.JxW(q_point);
+  //   ave_epsp_eff[cell_index] = 0.0;
+  //   ave_pressure[cell_index] = 0.0;
 
 
-      sig_zz_contrb += dW_dE[2][2]*scratch.fe_values.JxW(q_point);
+  //   double sig_zz_contrb = 0.0;
+  //   for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+  //   {
+  //     unsigned int indx = cell_index*n_q_points + q_point;
 
-      for (unsigned int n = 0; n < dofs_per_cell; ++n)
-      {
-        const unsigned int component_n = fe.system_to_component_index(n).first;
+  //     Tensor<2,DIM3> *nextEpsp = &((Epsp)[indx]);
+  //     double *nextEpsp_eff  = &((Epsp_eff)[indx]);
+  //     // elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
+  //     get_strain_223(old_solution_gradients[q_point], lambdar, Eps);
 
-        for(unsigned int j = 0; j<DIM; ++j)
-        {
-          cell_rhs(n) -= dW_dE[component_n][j]*scratch.fe_values.shape_grad(n, q_point)[j]*scratch.fe_values.JxW(q_point);
-        }
-      }
-    }
-
-    ave_epsp_eff[cell_index] *= 1.0/cell->measure();
-    ave_pressure[cell_index] *= 1.0/cell->measure();
-
-    cell_rhs(dofs_per_cell) = sig_zz_contrb;
-    copy_data.cell_rhs = cell_rhs;
-
-    copy_data.local_dof_indices.resize(dofs_per_cell);
-    cell->get_dof_indices (copy_data.local_dof_indices);
-
-  }
-
-  void ElasticProblem::parallel_assemble_rhs(unsigned int n)
-  {
-    system_rhs = 0.0;
-    S33_AreaAvg = 0.0;
+  //     // elmMats[cell_index].get_dE(Eps, dW_dE);
+  //     ave_epsp_eff[cell_index] += Epsp_eff[indx]*scratch.fe_values.JxW(q_point);
+  //     pressure[indx] = K*trace(Eps);
+  //     ave_pressure[cell_index] += K*trace(Eps)*scratch.fe_values.JxW(q_point);
 
 
-    WorkStream::run(dof_handler.begin_active(),
-                    dof_handler.end(),
-                    *this,
-                    &ElasticProblem::local_assemble_system_rhs,
-                    &ElasticProblem::copy_local_to_global_rhs,
-                    AssemblyScratchData(fe, problemQuadrature, n),
-                    RhsAssemblyCopyData());
+  //     sig_zz_contrb += dW_dE[2][2]*scratch.fe_values.JxW(q_point);
+
+  //     for (unsigned int n = 0; n < dofs_per_cell; ++n)
+  //     {
+  //       const unsigned int component_n = fe.system_to_component_index(n).first;
+
+  //       for(unsigned int j = 0; j<DIM; ++j)
+  //       {
+  //         cell_rhs(n) -= dW_dE[component_n][j]*scratch.fe_values.shape_grad(n, q_point)[j]*scratch.fe_values.JxW(q_point);
+  //       }
+  //     }
+  //   }
+
+  //   ave_epsp_eff[cell_index] *= 1.0/cell->measure();
+  //   ave_pressure[cell_index] *= 1.0/cell->measure();
+
+  //   cell_rhs(dofs_per_cell) = sig_zz_contrb;
+  //   copy_data.cell_rhs = cell_rhs;
+
+  //   copy_data.local_dof_indices.resize(dofs_per_cell);
+  //   cell->get_dof_indices (copy_data.local_dof_indices);
+
+  // }
+
+  // void ElasticProblem::parallel_assemble_rhs(unsigned int n)
+  // {
+  //   system_rhs = 0.0;
+  //   S33_AreaAvg = 0.0;
+
+
+  //   WorkStream::run(dof_handler.begin_active(),
+  //                   dof_handler.end(),
+  //                   *this,
+  //                   &ElasticProblem::local_assemble_system_rhs,
+  //                   &ElasticProblem::copy_local_to_global_rhs,
+  //                   AssemblyScratchData(fe, problemQuadrature, n),
+  //                   RhsAssemblyCopyData());
 
 //    constraints.condense (system_rhs);
 

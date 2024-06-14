@@ -81,32 +81,35 @@ namespace compressed_strip
                        Class Declarations
   ****************************************************************/
 
-  class Compute_eps_p : public DataPostprocessor<DIM>
-  {
-  public:
 
-    Compute_eps_p(std::vector<double> *q_ptr, std::vector<double> *pressure_ptr)
-    {
-      q = q_ptr;
-      pressure = pressure_ptr;
-    }
+  // no plasticity involved for now. skip this for now
 
-    virtual void evaluate_vector_field(const DataPostprocessorInputs::Vector< DIM > &   input_data,
-                                        std::vector< Vector< double > > &   computed_quantities) const;
+  // class Compute_eps_p : public DataPostprocessor<DIM>
+  // {
+  // public:
 
-    virtual std::vector<std::string> get_names() const;
+  //   Compute_eps_p(std::vector<double> *q_ptr, std::vector<double> *pressure_ptr)
+  //   {
+  //     q = q_ptr;
+  //     pressure = pressure_ptr;
+  //   }
 
-    virtual UpdateFlags get_needed_update_flags() const;
-    virtual std::vector<DataComponentInterpretation::DataComponentInterpretation> get_data_component_interpretation () const;
+  //   virtual void evaluate_vector_field(const DataPostprocessorInputs::Vector< DIM > &   input_data,
+  //                                       std::vector< Vector< double > > &   computed_quantities) const;
+
+  //   virtual std::vector<std::string> get_names() const;
+
+  //   virtual UpdateFlags get_needed_update_flags() const;
+  //   virtual std::vector<DataComponentInterpretation::DataComponentInterpretation> get_data_component_interpretation () const;
 
 
 
-  private:
+  // private:
 
-    std::vector<double> *q;
-    std::vector<double> *pressure;
+  //   std::vector<double> *q;
+  //   std::vector<double> *pressure;
 
-  };
+  // };
 
 
   /****  ElasticProblem  *****
@@ -119,14 +122,12 @@ namespace compressed_strip
     ~ElasticProblem();
 
     void create_mesh();
-    void setup_system ();
+    void setup_system (const bool initial_step);
 
     void output_results(const unsigned int cycle) const;
 
     void read_input_file(char* filename);
 
-    void save_current_state(unsigned int indx, bool firstTime);
-    void load_state(unsigned int indx);
 
     // get methods for important constants
 
@@ -189,14 +190,18 @@ namespace compressed_strip
     void line_search_and_add_step_length(double last_residual, std::vector<bool> *homogenous_dirichlet_dofs);
     void update_internal_vars();
 
-    void numerical_derivative(unsigned int n, double pert);
+    // void numerical_derivative(unsigned int n, double pert);
 
-    void numerical_derivative_internal(double pert);
+    // void numerical_derivative_internal(double pert);
 
-    void assemble_mass_vector();
-    void assemble_mass_matrix();
+    // void assemble_mass_vector();
+    // void assemble_mass_matrix();
     void assemble_system_matrix();
     void assemble_system_rhs();
+
+    void initiate_guess();
+    std::vector<bool> selected_dofs_x;
+    std::vector<bool> selected_dofs_yz;
 
 
     void solve();
@@ -209,22 +214,19 @@ namespace compressed_strip
     Triangulation<DIM,DIM>   triangulation;
     DoFHandler<DIM>      dof_handler;
     Quadrature<DIM>      problemQuadrature;
-
     FESystem<DIM>        fe;
 
 //    ConstraintMatrix     constraints;
     AffineConstraints<double> constraints;
 
-    std::vector<IndexSet>    owned_partitioning;
-    std::vector<IndexSet>    relevant_partitioning;
 
     SparsityPattern      sparsity_pattern;
     SparseMatrix<double> system_matrix;
-    SparseMatrix<double> mass_matrix;
-    SparseDirectUMFPACK  *mass_direct = NULL;
-    SparseMatrix<double> adjoint_system_matrix;
+    // SparseMatrix<double> mass_matrix;
+    // SparseDirectUMFPACK  *mass_direct = NULL;
+    // SparseMatrix<double> adjoint_system_matrix;
 
-    Vector<double> mass_vector;
+    // Vector<double> mass_vector;
 
     // Compressible_NeoHookean nh;
 
@@ -234,22 +236,18 @@ namespace compressed_strip
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;
     Vector<double>       present_solution;
-    Vector<double>       velocity;
-    Vector<double>       accel;
+
+    Vector<double>      solution_u, solution_u1; // idk what this shit is for
+    Vector<double>      newton_update;
 
     std::vector<bool> homo_dofs;
     std::vector<unsigned int>  grid_dimensions;
     std::vector<double> domain_dimensions;
 
-    std::vector<unsigned int> dead_design_vars;
-    std::vector<bool> dead_design_vars_flags;
-    std::vector< Vector<double> > values_history;
+    // std::vector<unsigned int> dead_design_vars;
+    // std::vector<bool> dead_design_vars_flags;
+    // std::vector< Vector<double> > values_history;
 
-    std::vector<double> Epsp_eff;
-    std::vector<double> pressure;
-    std::vector< Tensor<2, DIM3> > Epsp;
-    Vector<double> ave_epsp_eff;
-    Vector<double> ave_pressure;
 
     std::vector<double> radii;
     std::vector<int> map_cell_to_rLine;
@@ -258,7 +256,7 @@ namespace compressed_strip
     double TopVol = 0.0;
     std::vector<unsigned int> top_elms;
 
-    Compute_eps_p *postprocess = NULL;
+    // Compute_eps_p *postprocess = NULL;
 
     double K = 0.0;
 
@@ -286,28 +284,14 @@ namespace compressed_strip
 
     double dT = 0.01;
     double T_final = 1.0;
+    double current_time = 0.0;
 
 
-    double density = 1.0;
+    // double density = 1.0;
 
-    // plastic parameters
-    double m_ = 1.0;
-    double n_ = 5.0;
-    double eps_p_0 = 1e-3;
-    double eps_p_0_dot = 1.0;
-    double yield = 1e-3;
-
-    double area = 1.0;
-    double S33_AreaAvg = 0.0;
-    double lambdar = 1.0;
-    double lambdar_dot = -1.0;
-    double lambdar_ddot = 0.0;
-
-    // inContact is for impactor problem
-//    double M_impactor = 1.0;
-//    double u_impactor = 0.0;
-//    double v_impactor = -0.1;
-//    double a_impactor = 0.0;
+    // some elastic parameters
+    double mu =  1.0;
+    double nu = 0.3;
 
 //    bool inContact = true;
     bool firstFlag = true;

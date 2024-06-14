@@ -7,6 +7,7 @@
 //#include <gsl/gsl_poly.h>
 
 #define DIM3 3
+#define DIM 3
 
 using namespace dealii;
 
@@ -223,36 +224,64 @@ using namespace dealii;
 
   };
 
+
+  // changing to linear elastic in large deformation case
+  
+  // class LinearElastic
+  // {
+  //   public:
+  //   LinearElastic(){};
+
+  //   virtual ~LinearElastic(){};
+  //   void set_internal(double E, double nu)
+  //   {
+  //     mu = E/(2.0*(1 + nu));
+  //     lambda = E*nu/((1 + nu)*(1 - 2.0*nu));
+
+  //     for (unsigned int i = 0; i < DIM3; i ++)
+  //       for (unsigned int j = 0; j < DIM3; j ++)
+  //         for (unsigned int k = 0; k < DIM3; k ++)
+  //           for (unsigned int l = 0; l < DIM3; l ++)
+  //             C[i][j][k][l] = ((i == j) && (k ==l) ? lambda : 0.0) +
+  //               ((i == k) && (j ==l) ? mu : 0.0) + ((i == l) && (j ==k) ? mu : 0.0);
+  //   };
+
+
+  //   double get_energy(Tensor<2, DIM3> &grad_u);
+  //   Tensor<2, DIM3> get_sigma(Tensor<2, DIM3> &grad_u);
+  //   Tensor<4, DIM3> get_C();
+
+  //   Tensor<4, DIM3> C;
+
+  //   private:
+  //     double lambda;
+  //     double mu;
+  // };
+
   class LinearElastic
   {
     public:
-    LinearElastic(){};
 
-    virtual ~LinearElastic(){};
-    void set_internal(double E, double nu)
-    {
-      mu = E/(2.0*(1 + nu));
-      lambda = E*nu/((1 + nu)*(1 - 2.0*nu));
+//    virtual ~LinearElastic(){};
+	LinearElastic(){};
+    LinearElastic(double mu_, double nu_);
 
-      for (unsigned int i = 0; i < DIM3; i ++)
-        for (unsigned int j = 0; j < DIM3; j ++)
-          for (unsigned int k = 0; k < DIM3; k ++)
-            for (unsigned int l = 0; l < DIM3; l ++)
-              C[i][j][k][l] = ((i == j) && (k ==l) ? lambda : 0.0) +
-                ((i == k) && (j ==l) ? mu : 0.0) + ((i == l) && (j ==k) ? mu : 0.0);
-    };
+    void init(double mu_, double nu_);
+    double get_energy(Tensor<2, DIM> &grad_u);
+    void get_dWdF(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &dWdF);
+    void get_dWdF2(Tensor<2, DIM> &grad_u, Tensor<4, DIM> &dWdF2);
 
+    void get_F(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &F);
+    void get_C(Tensor<2, DIM> &grad_u, Tensor<2, DIM> &C);
 
-    double get_energy(Tensor<2, DIM3> &grad_u);
-    Tensor<2, DIM3> get_sigma(Tensor<2, DIM3> &grad_u);
-    Tensor<4, DIM3> get_C();
+    double mu;
+    double nu;
+    double bulk;
 
-    Tensor<4, DIM3> C;
 
     private:
-      double lambda;
-      double mu;
   };
+
 
 
 
