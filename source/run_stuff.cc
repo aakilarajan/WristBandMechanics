@@ -17,8 +17,6 @@ int main ()
 
   ep.setup_system(true);
 
-  exit(0);
-
   std::cout << "\n   Number of active cells:       "
             << ep.get_number_active_cells()
             << std::endl;

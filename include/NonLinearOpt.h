@@ -198,6 +198,9 @@ namespace compressed_strip
     // void assemble_mass_matrix();
     void assemble_system_matrix();
     void assemble_system_rhs();
+    void apply_boundaries_and_constraints();
+    double compute_residual();
+    void propagate_u();
 
     void initiate_guess();
     std::vector<bool> selected_dofs_x;
@@ -236,8 +239,9 @@ namespace compressed_strip
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;
     Vector<double>       present_solution;
+    // Vector<double>       solution_u;
 
-    Vector<double>      solution_u, solution_u1; // idk what this shit is for
+    Vector<double>      solution_u;
     Vector<double>      newton_update;
 
     std::vector<bool> homo_dofs;
@@ -285,6 +289,14 @@ namespace compressed_strip
     double dT = 0.01;
     double T_final = 1.0;
     double current_time = 0.0;
+    	// double end_disp= 0.0;
+	double L0 = 0.025;
+	// double strain_increment = 0.0005;
+	double strain_rate = 0.001; //0.001; //todo
+	// double deltat= time_step;
+	double velocity_qs = strain_rate*L0;
+	// unsigned int endsteptime = 2000;
+
 
 
     // double density = 1.0;
