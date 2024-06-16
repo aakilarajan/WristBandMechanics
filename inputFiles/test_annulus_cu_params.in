@@ -5,7 +5,7 @@ BEAM_BENDING_01
 
 # grid dimensions
 #12 9 4
-40 10 5
+40 15 7
 
 # domain dimensions
 #10.0e-2 1.5e-2 0.5e-2
