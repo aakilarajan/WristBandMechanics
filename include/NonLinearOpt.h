@@ -181,6 +181,7 @@ namespace compressed_strip
                                     Tensor<2,DIM> &F);
     void get_strain(std::vector<Tensor<1,DIM> > &old_solution_gradient,
                                     Tensor<2,DIM> &Eps);
+    void get_gradu_tensor(std::vector<Tensor<1,DIM> > &old_solution_gradient, Tensor<2,DIM> &gradu);
 
     void setup_system_constraints();
 
@@ -277,7 +278,7 @@ namespace compressed_strip
 
     // double mu = 1.0;
     // double lambda = 1.0;
-    double Elas_mod = 1.0;
+    double Shear_mod = 1.0;
     double nu_poi_ratio = 1.0;
 
     double V_tot_ratio = 0.0;

@@ -20,4 +20,4 @@ BEAM_BENDING_01
 
 # final time, and steps
 #2.0e-5 8000
-0.05 2000
+100.0 2000

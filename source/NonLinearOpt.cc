@@ -14,6 +14,7 @@
 #define COMPRESSEDSTRIPPACABLOCH_CC_
 #include "NonLinearOpt.h"
 
+#include <deal.II/grid/grid_tools.h>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -115,6 +116,21 @@ namespace compressed_strip
     }
   }
 
+  inline 
+  void ElasticProblem::get_gradu_tensor(std::vector<Tensor<1,DIM>> &old_solution_gradient, 
+                                          Tensor<2,DIM> &gradu)
+  {
+    
+    gradu = 0.0;
+    for (unsigned int i = 0; i < DIM; i ++)
+    {
+      for(unsigned int j = 0; j < DIM; j++)
+      {
+        gradu[i][j] += old_solution_gradient[i][j];
+      }
+    }
+  }
+
   inline void ElasticProblem::get_strain(std::vector<Tensor<1,DIM> > &old_solution_gradient,
       Tensor<2,DIM> &Eps)
   {
@@ -201,8 +217,12 @@ namespace compressed_strip
       dof_handler.distribute_dofs (fe);
 
     elmMats.resize(N);
+    mu = Shear_mod;
+    nu = nu_poi_ratio;
     for (unsigned int i = 0; i < N; ++i)
       elmMats[i].init(mu, nu);
+
+    std::cout << "  mu and nu = " << mu << ", " << nu << std::endl;
 
     double nq_points = qy*qx*qz;
     dof_handler.distribute_dofs (fe);
@@ -296,6 +316,9 @@ namespace compressed_strip
 										side_x_mask,
 										selected_dofs_x,
 										{1});
+
+		// printf current_time, and velocity_qs
+		std::cout << "  current_time = " << current_time << ", " << velocity_qs << std::endl;
 
 		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
 		{
@@ -479,7 +502,7 @@ namespace compressed_strip
     std::vector<types::global_dof_index> local_dof_indices (dofs_per_cell);
 
 
-    Tensor<2,DIM3> F_Deformation_Grad;
+    Tensor<2,DIM3> grad_u;
     Tensor<2,DIM3> dW_dF;     // piola kirchoff
 
     std::vector<Tensor<1, DIM> > rhs_values (n_q_points);
@@ -500,12 +523,12 @@ namespace compressed_strip
 
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
       {
-        F_Deformation_Grad = 0.0;
+        grad_u = 0.0;
         dW_dF = 0.0;    
 
         unsigned int indx = cell_index*n_q_points + q_point;
-        get_deformation_gradient(old_solution_gradients[q_point], F_Deformation_Grad);
-        elmMats[cell_index].get_dWdF(F_Deformation_Grad, dW_dF);
+        get_gradu_tensor(old_solution_gradients[q_point], grad_u);
+        elmMats[cell_index].get_dWdF(grad_u, dW_dF);
 
         // assembling cell_matrix
 
@@ -520,6 +543,9 @@ namespace compressed_strip
             cell_rhs(n) -= dW_dF[component_n][j]*fe_values.shape_grad(n, q_point)[j]*fe_values.JxW(q_point);
           }
         }
+
+        if (cell_index == 420 && q_point == 0)
+          std::cout << " PK = " << dW_dF[0][0] << ", R_local = " << cell_rhs(0);
 
       }
 
@@ -560,7 +586,7 @@ namespace compressed_strip
 
     FullMatrix<double>   cell_matrix (dofs_per_cell, dofs_per_cell);
 
-    Tensor<2, DIM3> F_Deformation_Grad;;
+    Tensor<2, DIM3> grad_u;;
     Tensor<4, DIM3> d2W_dF2;     // hessian
 
     
@@ -578,12 +604,12 @@ namespace compressed_strip
 
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
       {
-        F_Deformation_Grad = 0.0;
+        grad_u = 0.0;
         d2W_dF2 = 0.0;    
 
         unsigned int indx = cell_index*n_q_points + q_point;
-        get_deformation_gradient(old_solution_gradients[q_point], F_Deformation_Grad);
-        elmMats[cell_index].get_dWdF2(F_Deformation_Grad, d2W_dF2);
+        get_gradu_tensor(old_solution_gradients[q_point], grad_u);
+        elmMats[cell_index].get_dWdF2(grad_u, d2W_dF2);
 
 
         for (unsigned int n = 0; n < dofs_per_cell; ++n)
@@ -602,6 +628,9 @@ namespace compressed_strip
               }
           }
         }
+
+        if (cell_index == 420 && q_point == 0)
+          std::cout << ", cell_matrix = " << cell_matrix[0][0] << std::endl;
       }
 
       cell->get_dof_indices (local_dof_indices);
@@ -905,7 +934,7 @@ namespace compressed_strip
 
       // read in the lambda and mu and density
       getNextDataLine(fid, nextLine, MAXLINE, &endOfFileFlag);
-      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &Elas_mod, &nu_poi_ratio);
+      valuesWritten = sscanf(nextLine, "%lg %lg %lg", &Shear_mod, &nu_poi_ratio);
       if(valuesWritten != 2)
       {
         fileReadErrorFlag = true;
