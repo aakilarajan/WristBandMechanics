@@ -32,7 +32,7 @@
 #define DIM 3
 #define DIM_IP 2
 #define DIM3 3
-#define STEP_OUT 1
+#define STEP_OUT 10
 #define PI 3.14159
 
 
@@ -100,21 +100,21 @@ namespace compressed_strip
 
   }
 
-  inline
-  void ElasticProblem::get_deformation_gradient(std::vector<Tensor<1,DIM> > &old_solution_gradient,
-                                                Tensor<2,DIM> &F)
-  {
+  // inline
+  // void ElasticProblem::get_deformation_gradient(std::vector<Tensor<1,DIM> > &old_solution_gradient,
+  //                                               Tensor<2,DIM> &F)
+  // {
 
-    F = 0.0;
-    for (unsigned int i = 0; i < DIM; i ++)
-    {
-      F[i][i] += 1.0;
-      for(unsigned int j = 0; j < DIM; j++)
-      {
-        F[i][j] += old_solution_gradient[i][j];
-      }
-    }
-  }
+  //   F = 0.0;
+  //   for (unsigned int i = 0; i < DIM; i ++)
+  //   {
+  //     F[i][i] += 1.0;
+  //     for(unsigned int j = 0; j < DIM; j++)
+  //     {
+  //       F[i][j] += old_solution_gradient[i][j];
+  //     }
+  //   }
+  // }
 
   inline 
   void ElasticProblem::get_gradu_tensor(std::vector<Tensor<1,DIM>> &old_solution_gradient, 
@@ -310,7 +310,7 @@ namespace compressed_strip
 
   void ElasticProblem::initiate_guess()
   {
-    		std::vector<bool> side_x = {true, false, false};
+    std::vector<bool> side_x = {true, false, false};
 		ComponentMask side_x_mask(side_x);
 		DoFTools::extract_boundary_dofs(dof_handler,
 										side_x_mask,
@@ -318,12 +318,14 @@ namespace compressed_strip
 										{1});
 
 		// printf current_time, and velocity_qs
-		std::cout << "  current_time = " << current_time << ", " << velocity_qs << std::endl;
 
 		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
 		{
 			if (selected_dofs_x[n])
+      {
 				present_solution[n] = (current_time - dT) * velocity_qs;
+
+      }
 		}
 
 		std::vector<bool> side_yz = {false, true, true};
@@ -341,6 +343,8 @@ namespace compressed_strip
   }
 
 
+
+
   void ElasticProblem::solve_forward_problem()
   {
 
@@ -353,7 +357,7 @@ namespace compressed_strip
 		for (; current_time <= T_final; current_time += dT, ++timestep_number)
 		{
 
-			std::cout << "time step " << timestep_number << " at t= " << current_time << "   " << "--------------------------------------------------------" << std::endl;
+			std::cout << "time step " << timestep_number << " at t= " << current_time << ", EndDisp = " << (current_time - dT) * velocity_qs << "   " << "--------------------------------------------------------" << std::endl;
 
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
@@ -423,7 +427,7 @@ namespace compressed_strip
 
 		unsigned int cell_index = 0;
     Tensor<2, DIM> PKres; // this is probably piola kirchoff
-    Tensor<2, DIM3> F_Deformation_Grad;
+    Tensor<2, DIM3> grad_u;
 
 		for (; cell != endc; ++cell)
 		{
@@ -438,11 +442,11 @@ namespace compressed_strip
 			{
         
         PKres = 0.0;
-        F_Deformation_Grad = 0.0;
+        grad_u = 0.0;
 
 
-        get_deformation_gradient(old_solution_gradients[q_point], F_Deformation_Grad);
-        elmMats[cell_index].get_dWdF(F_Deformation_Grad, PKres);				
+        get_gradu_tensor(old_solution_gradients[q_point], grad_u);
+        elmMats[cell_index].get_dWdF(grad_u, PKres);				
 
         for (unsigned int n = 0; n < dofs_per_cell; ++n)
         {
@@ -544,15 +548,13 @@ namespace compressed_strip
           }
         }
 
-        if (cell_index == 420 && q_point == 0)
-          std::cout << " PK = " << dW_dF[0][0] << ", R_local = " << cell_rhs(0);
 
       }
 
       cell->get_dof_indices (local_dof_indices);
 
       for (unsigned int n=0; n<dofs_per_cell; ++n)
-        system_rhs(local_dof_indices[n]) += cell_rhs(n);
+        system_rhs(local_dof_indices[n]) -= cell_rhs(n);
 
     }
 
@@ -628,9 +630,6 @@ namespace compressed_strip
               }
           }
         }
-
-        if (cell_index == 420 && q_point == 0)
-          std::cout << ", cell_matrix = " << cell_matrix[0][0] << std::endl;
       }
 
       cell->get_dof_indices (local_dof_indices);
