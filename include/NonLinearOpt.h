@@ -207,6 +207,10 @@ namespace compressed_strip
     // std::vector<bool> selected_dofs_x;
     // std::vector<bool> selected_dofs_yz;
 
+    void assign_phi();
+    void assign_phi_filtered();
+    void assign_material_properties();
+
 
     void solve();
 
@@ -236,6 +240,8 @@ namespace compressed_strip
 
     // std::vector<J2Isotropic> elmMats;
     std::vector<LinearElastic> elmMats;
+    Vector<double>  phi;
+    Vector<double>  phi_filtered;
 
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;

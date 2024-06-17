@@ -219,8 +219,8 @@ namespace compressed_strip
     elmMats.resize(N);
     mu = Shear_mod;
     nu = nu_poi_ratio;
-    for (unsigned int i = 0; i < N; ++i)
-      elmMats[i].init(mu, nu);
+    // for (unsigned int i = 0; i < N; ++i)
+    //   elmMats[i].init(mu, nu);
 
     std::cout << "  mu and nu = " << mu << ", " << nu << std::endl;
 
@@ -272,10 +272,67 @@ namespace compressed_strip
 
     problemQuadrature = QAnisotropic<DIM>(quad_x, quad_y, quad_z);
 
+    // setting up the phase field
+    // still need to filter it yet. just checking for nw
+    phi.reinit(N);
+    phi_filtered.reinit(N);
+    assign_phi();
+
+    assign_material_properties();
+
     output_results(0);
 
   }
 
+  void ElasticProblem::assign_phi()
+  {
+
+    // loop over cells and put them in their groups
+    typename DoFHandler<DIM>::active_cell_iterator
+    cell = dof_handler.begin_active(),
+    endc = dof_handler.end();
+    Point<DIM> current_cell_center;
+
+    // double phi_min = 0.01;
+    // double phi_substrate = 0.5;
+    // double phi_electrode = 1.0;
+
+    double phi_min = 0.01;
+    double phi_substrate = 0.5;
+    double phi_electrode = 1.0;
+    
+
+    for (; cell!=endc; ++cell)
+    {
+
+      unsigned int cell0_index = cell->active_cell_index();
+      current_cell_center = cell->center();
+
+      if (current_cell_center[2] < 0.003)
+        phi[cell0_index] = phi_substrate;
+      else if (current_cell_center[1] > 0.003 && current_cell_center[1] < 0.007)
+        phi[cell0_index] = phi_electrode;
+      else
+        phi[cell0_index] = phi_min;
+    }
+    
+  }
+
+
+  void ElasticProblem::assign_material_properties()
+  {
+    // loop over cells and put them in their groups
+    typename DoFHandler<DIM>::active_cell_iterator
+      cell = dof_handler.begin_active(),
+      endc = dof_handler.end();
+    
+    for (; cell!=endc; ++cell)
+    {
+      
+      unsigned int cell0_index = cell->active_cell_index();
+      elmMats[cell0_index].init(phi[cell0_index]*mu, nu);
+    }
+  }
 
 
   void ElasticProblem::setup_system_constraints ()
@@ -346,20 +403,20 @@ namespace compressed_strip
   {
     // pulling it in y direction 
 
-    std::vector<bool> side_y = {false, true, false};
-		ComponentMask side_y_mask(side_y);
-    std::vector<bool> selected_dofs_y;
+    std::vector<bool> side_z = {false, false, true};
+		ComponentMask side_z_mask(side_z);
+    std::vector<bool> selected_dofs_z;
 
 		DoFTools::extract_boundary_dofs(dof_handler,
-										side_y_mask,
-										selected_dofs_y,
+										side_z_mask,
+										selected_dofs_z,
 										{1});
 
 		// printf current_time, and velocity_qs
 
 		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
 		{
-			if (selected_dofs_y[n])
+			if (selected_dofs_z[n])
       {
 				present_solution[n] = (current_time - dT) * velocity_qs;
       }
@@ -760,9 +817,9 @@ void ElasticProblem::apply_boundaries_and_constraints()
 		std::map<types::global_dof_index, double> boundary_values;
 
 		std::vector<bool> encastre = {true, true, true};
-    std::vector<bool> y_BC = {false, true, false};
+    std::vector<bool> z_BC = {false, false, true};
 		ComponentMask encastre_mask(encastre);
-    ComponentMask y_bc_bend(y_BC);
+    ComponentMask z_bc_bend(z_BC);
 
 		VectorTools::interpolate_boundary_values(dof_handler,
 												 0,
@@ -774,7 +831,7 @@ void ElasticProblem::apply_boundaries_and_constraints()
 												 1,
 												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
 												 boundary_values,
-												 encastre_mask);
+												 z_bc_bend);
 
 		MatrixTools::apply_boundary_values(boundary_values,
 										   system_matrix,
@@ -919,6 +976,9 @@ void ElasticProblem::apply_boundaries_and_constraints()
     filename0 += ".vtu";
     std::ofstream output_lagrangian_solution (filename0.c_str());
 
+    std::vector<std::string> solutionName_DIC_ux;
+    solutionName_DIC_ux.push_back("phi");
+
     DataOut<DIM> data_out_lagrangian;
 
     data_out_lagrangian.attach_dof_handler (dof_handler);
@@ -935,6 +995,7 @@ void ElasticProblem::apply_boundaries_and_constraints()
 
     // data_out_lagrangian.add_data_vector(ave_epsp_eff, solutionName_epsp);
     // data_out_lagrangian.add_data_vector(ave_pressure, solutionName_ave_p);
+    data_out_lagrangian.add_data_vector(phi, solutionName_DIC_ux);
 
 
     data_out_lagrangian.build_patches ();
