@@ -210,7 +210,7 @@ namespace compressed_strip
     void assign_phi();
     void assign_phi_filtered();
     void assign_material_properties();
-
+    void compute_objective();
 
     void solve();
 
@@ -242,6 +242,7 @@ namespace compressed_strip
     std::vector<LinearElastic> elmMats;
     Vector<double>  phi;
     Vector<double>  phi_filtered;
+    Vector<double>  von_misses_stress;
 
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;
@@ -270,6 +271,7 @@ namespace compressed_strip
     // Compute_eps_p *postprocess = NULL;
 
     double K = 0.0;
+    double objective = 0.0;
 
 
     unsigned int iter = 0;

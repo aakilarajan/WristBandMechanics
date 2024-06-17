@@ -81,6 +81,23 @@ namespace compressed_strip
   }
 
 
+  // this will give an error for DIM != 3
+  inline
+  double compute_von_misses_stress(Tensor<2,DIM> &cauchy_stress)
+  {
+    double von_misses = 0.0;
+
+    von_misses += 0.5*(cauchy_stress[0][0] - cauchy_stress[1][1])*(cauchy_stress[0][0] - cauchy_stress[1][1]);
+    von_misses += 0.5*(cauchy_stress[1][1] - cauchy_stress[2][2])*(cauchy_stress[1][1] - cauchy_stress[2][2]);
+    von_misses += 0.5*(cauchy_stress[2][2] - cauchy_stress[0][0])*(cauchy_stress[2][2] - cauchy_stress[0][0]);
+
+    von_misses += 3.0*(cauchy_stress[0][1] * cauchy_stress[0][1] + 
+                       cauchy_stress[1][2] * cauchy_stress[1][2] + 
+                       cauchy_stress[2][0] * cauchy_stress[2][0]);
+
+    return von_misses;
+
+  }
 
 
   // computes right hand side values if we were to have body forces. But it just
@@ -99,22 +116,6 @@ namespace compressed_strip
     }
 
   }
-
-  // inline
-  // void ElasticProblem::get_deformation_gradient(std::vector<Tensor<1,DIM> > &old_solution_gradient,
-  //                                               Tensor<2,DIM> &F)
-  // {
-
-  //   F = 0.0;
-  //   for (unsigned int i = 0; i < DIM; i ++)
-  //   {
-  //     F[i][i] += 1.0;
-  //     for(unsigned int j = 0; j < DIM; j++)
-  //     {
-  //       F[i][j] += old_solution_gradient[i][j];
-  //     }
-  //   }
-  // }
 
   inline 
   void ElasticProblem::get_gradu_tensor(std::vector<Tensor<1,DIM>> &old_solution_gradient, 
@@ -166,42 +167,7 @@ namespace compressed_strip
       corner2[i] = domain_dimensions[i];
 
     GridGenerator::subdivided_hyper_rectangle(triangulation, grid_dimensions, corner1, corner2, true);
-    // GridGenerator::hyper_shell(triangulation, center2, domain_dimensions[0], domain_dimensions[1], grid_dimensions[0], false);
-    // Point<DIM> pnt;
-    // pnt[0] = 0.0;
-    // pnt[1] = 0.0;
-
-    // PolarManifold<DIM> polar_manifold(pnt);
-    // triangulation.set_all_manifold_ids(1);
-    // triangulation.set_all_manifold_ids_on_boundary(0, 1);
-    // triangulation.set_manifold(1, polar_manifold);
-    // for(unsigned int i = 0; i < grid_dimensions[]; i++)
-    // {
-    //   typename Triangulation<DIM>::active_cell_iterator cell =
-    //    triangulation.begin_active(), endc = triangulation.end();
-    //   for (; cell!=endc; ++cell)
-    //   {
-    //     cell->set_refine_flag(RefinementCase<DIM>::cut_xy);
-    //   }
-    //   triangulation.execute_coarsening_and_refinement();
-    // }
-
-    // for (unsigned int i = 0; i < 3; ++i)
-    //   triangulation.refine_global();
-
-
-    // GridTools::transform(
-    //      [](const Point<DIM> &in) {
-    //        double alpha = 2.5e-4;
-    //        double r = sqrt(in[0]*in[0] + in[1]*in[1] + 1.0e-12);
-    //        double theta = atan2(in[1],in[0]);
-    //        return Point<DIM>(in[0]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*cos(theta), in[1]+alpha*(r/1.5e-3 - 0.75e-3/1.5e-3)*cos(6.0*theta)*sin(theta));
-    //      },
-    //      triangulation);
-
-//    GridTools::transform([](const Point<DIM> &in) {return Point<DIM> ( 2.0*in[0],1.0*in[1]);}, triangulation);
-
-//    output_results(0);
+ 
 
   }
 
@@ -272,15 +238,22 @@ namespace compressed_strip
 
     problemQuadrature = QAnisotropic<DIM>(quad_x, quad_y, quad_z);
 
+
+
+    if (initial_step)
+    {
     // setting up the phase field
     // still need to filter it yet. just checking for nw
     phi.reinit(N);
     phi_filtered.reinit(N);
     assign_phi();
-
+    
+    // setting up von misses stress
+    von_misses_stress.reinit(N);
     assign_material_properties();
+      output_results(0);
 
-    output_results(0);
+    }
 
   }
 
@@ -308,14 +281,32 @@ namespace compressed_strip
       unsigned int cell0_index = cell->active_cell_index();
       current_cell_center = cell->center();
 
-      if (current_cell_center[2] < 0.003)
-        phi[cell0_index] = phi_substrate;
-      else if (current_cell_center[1] > 0.003 && current_cell_center[1] < 0.007)
-        phi[cell0_index] = phi_electrode;
-      else
+      phi[cell0_index] = phi_substrate;
+
+      // if (current_cell_center[2] < 0.003)
+      //   phi[cell0_index] = phi_substrate;
+      // else if (current_cell_center[1] > 0.003 && current_cell_center[1] < 0.007)
+      //   phi[cell0_index] = phi_electrode;
+      // else
+      //   phi[cell0_index] = phi_min;
+
+      if (current_cell_center[2] > 0.003)
+      {
         phi[cell0_index] = phi_min;
+        double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+        double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
+        
+        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+          phi[cell0_index] = phi_electrode;
+      }
+
     }
     
+  }
+
+  void ElasticProblem::compute_objective()
+  {
+
   }
 
 
@@ -618,6 +609,7 @@ namespace compressed_strip
       right_hand_side (fe_values.get_quadrature_points(), rhs_values);  // this is useless since there is no force 
 
       unsigned int cell_index = cell->active_cell_index();
+      von_misses_stress[cell_index] = 0.0;
 
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
       {
@@ -627,6 +619,13 @@ namespace compressed_strip
         unsigned int indx = cell_index*n_q_points + q_point;
         get_gradu_tensor(old_solution_gradients[q_point], grad_u);
         elmMats[cell_index].get_dWdF(grad_u, dW_dF);
+
+        // calculating the stress field. This is some bullshit method. look for better technqiue
+        Tensor<2,DIM3> F_deform_grad, cauchy_stress;
+        elmMats[cell_index].get_F(grad_u, F_deform_grad);
+        cauchy_stress = contract<1, 0>(dW_dF, transpose(F_deform_grad)) / determinant(F_deform_grad);
+
+        von_misses_stress[cell_index] += compute_von_misses_stress(cauchy_stress)*inv_q_points;
 
         // assembling cell_matrix
 
@@ -644,6 +643,9 @@ namespace compressed_strip
 
 
       }
+
+      // if (cell_index == 1069)
+      //   std::cout << "  von misses : " << von_misses_stress[cell_index] <<std::endl;
 
       cell->get_dof_indices (local_dof_indices);
 
@@ -978,6 +980,8 @@ void ElasticProblem::apply_boundaries_and_constraints()
 
     std::vector<std::string> solutionName_DIC_ux;
     solutionName_DIC_ux.push_back("phi");
+    std::vector<std::string> solutionName_von_misses;
+    solutionName_von_misses.push_back("Von_Misses");
 
     DataOut<DIM> data_out_lagrangian;
 
@@ -996,7 +1000,7 @@ void ElasticProblem::apply_boundaries_and_constraints()
     // data_out_lagrangian.add_data_vector(ave_epsp_eff, solutionName_epsp);
     // data_out_lagrangian.add_data_vector(ave_pressure, solutionName_ave_p);
     data_out_lagrangian.add_data_vector(phi, solutionName_DIC_ux);
-
+    data_out_lagrangian.add_data_vector(von_misses_stress, solutionName_von_misses);
 
     data_out_lagrangian.build_patches ();
     data_out_lagrangian.write_vtu (output_lagrangian_solution);
