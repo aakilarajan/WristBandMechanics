@@ -32,7 +32,7 @@
 #define DIM 3
 #define DIM_IP 2
 #define DIM3 3
-#define STEP_OUT 10
+#define STEP_OUT 1
 #define PI 3.14159
 
 
@@ -299,47 +299,84 @@ namespace compressed_strip
   }
 
 
-  void ElasticProblem::apply_boundaries_to_rhs(Vector<double> *rhs, std::vector<bool> *homogenous_dirichlet_dofs)
-  {
-    for (unsigned int i = 0; i < dof_handler.n_dofs(); i++)
-    {
-      if ((*homogenous_dirichlet_dofs)[i] == true)
-        (*rhs)[i] = 0.0;
-    }
-  }
+  // void ElasticProblem::apply_boundaries_to_rhs(Vector<double> *rhs, std::vector<bool> *homogenous_dirichlet_dofs)
+  // {
+  //   for (unsigned int i = 0; i < dof_handler.n_dofs(); i++)
+  //   {
+  //     if ((*homogenous_dirichlet_dofs)[i] == true)
+  //       (*rhs)[i] = 0.0;
+  //   }
+  // }
+
+  // void ElasticProblem::initiate_guess()
+  // {
+  //   std::vector<bool> side_x = {true, false, false};
+	// 	ComponentMask side_x_mask(side_x);
+	// 	DoFTools::extract_boundary_dofs(dof_handler,
+	// 									side_x_mask,
+	// 									selected_dofs_x,
+	// 									{1});
+
+	// 	// printf current_time, and velocity_qs
+
+	// 	for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+	// 	{
+	// 		if (selected_dofs_x[n])
+  //     {
+	// 			present_solution[n] = (current_time - dT) * velocity_qs;
+
+  //     }
+	// 	}
+
+	// 	std::vector<bool> side_yz = {false, true, true};
+	// 	ComponentMask side_yz_mask(side_yz);
+	// 	DoFTools::extract_boundary_dofs(dof_handler,
+	// 									side_yz_mask,
+	// 									selected_dofs_yz,
+	// 									{1});
+
+	// 	for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+	// 	{
+	// 		if (selected_dofs_yz[n])
+	// 			present_solution[n] = 0.0;
+	// 	}
+  // }
 
   void ElasticProblem::initiate_guess()
   {
-    std::vector<bool> side_x = {true, false, false};
-		ComponentMask side_x_mask(side_x);
+    // pulling it in y direction 
+
+    std::vector<bool> side_y = {false, true, false};
+		ComponentMask side_y_mask(side_y);
+    std::vector<bool> selected_dofs_y;
+
 		DoFTools::extract_boundary_dofs(dof_handler,
-										side_x_mask,
-										selected_dofs_x,
+										side_y_mask,
+										selected_dofs_y,
 										{1});
 
 		// printf current_time, and velocity_qs
 
 		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
 		{
-			if (selected_dofs_x[n])
+			if (selected_dofs_y[n])
       {
 				present_solution[n] = (current_time - dT) * velocity_qs;
-
       }
 		}
 
-		std::vector<bool> side_yz = {false, true, true};
-		ComponentMask side_yz_mask(side_yz);
-		DoFTools::extract_boundary_dofs(dof_handler,
-										side_yz_mask,
-										selected_dofs_yz,
-										{1});
+		// std::vector<bool> side_yz = {false, true, true};
+		// ComponentMask side_yz_mask(side_yz);
+		// DoFTools::extract_boundary_dofs(dof_handler,
+		// 								side_yz_mask,
+		// 								selected_dofs_yz,
+		// 								{1});
 
-		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
-		{
-			if (selected_dofs_yz[n])
-				present_solution[n] = 0.0;
-		}
+		// for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+		// {
+		// 	if (selected_dofs_yz[n])
+		// 		present_solution[n] = 0.0;
+		// }
   }
 
 
@@ -687,7 +724,35 @@ namespace compressed_strip
   }
 
 
-  void ElasticProblem::apply_boundaries_and_constraints()
+  // void ElasticProblem::apply_boundaries_and_constraints()
+  // {
+  //   constraints.condense(system_matrix);
+	// 	constraints.condense(system_rhs);
+
+	// 	std::map<types::global_dof_index, double> boundary_values;
+
+	// 	std::vector<bool> encastre = {true, true, true};
+	// 	ComponentMask encastre_mask(encastre);
+	// 	VectorTools::interpolate_boundary_values(dof_handler,
+	// 											 0,
+	// 											 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+	// 											 boundary_values,
+	// 											 encastre_mask);
+
+	// 	VectorTools::interpolate_boundary_values(dof_handler,
+	// 											 1,
+	// 											 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+	// 											 boundary_values,
+	// 											 encastre_mask);
+
+	// 	MatrixTools::apply_boundary_values(boundary_values,
+	// 									   system_matrix,
+	// 									   newton_update,
+	// 									   system_rhs);
+  // }
+
+  
+void ElasticProblem::apply_boundaries_and_constraints()
   {
     constraints.condense(system_matrix);
 		constraints.condense(system_rhs);
@@ -695,7 +760,10 @@ namespace compressed_strip
 		std::map<types::global_dof_index, double> boundary_values;
 
 		std::vector<bool> encastre = {true, true, true};
+    std::vector<bool> y_BC = {false, true, false};
 		ComponentMask encastre_mask(encastre);
+    ComponentMask y_bc_bend(y_BC);
+
 		VectorTools::interpolate_boundary_values(dof_handler,
 												 0,
 												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
@@ -714,6 +782,7 @@ namespace compressed_strip
 										   system_rhs);
   }
 
+  
 
 
   // void ElasticProblem::output_results (const unsigned int cycle) const

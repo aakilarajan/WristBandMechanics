@@ -204,8 +204,8 @@ namespace compressed_strip
     void propagate_u();
 
     void initiate_guess();
-    std::vector<bool> selected_dofs_x;
-    std::vector<bool> selected_dofs_yz;
+    // std::vector<bool> selected_dofs_x;
+    // std::vector<bool> selected_dofs_yz;
 
 
     void solve();
