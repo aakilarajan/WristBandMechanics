@@ -1,0 +1,21 @@
+# TEST INPUT FILE
+# first test for running the wrist band bending
+# with actual parameters
+
+# output directory
+WRIST_BAND_OPT_1
+
+# grid dimensions
+40 15 7
+
+# domain dimensions
+0.1 0.03 0.01
+
+# mu and nu
+932.835e6 0.34
+
+# number gauss points
+2 2 2
+
+# final time, and steps
+200.0 1000
