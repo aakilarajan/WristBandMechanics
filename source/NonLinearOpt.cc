@@ -266,13 +266,13 @@ namespace compressed_strip
     endc = dof_handler.end();
     Point<DIM> current_cell_center;
 
-    // double phi_min = 0.01;
-    // double phi_substrate = 0.5;
-    // double phi_electrode = 1.0;
-
-    double phi_min = 1.0;
-    double phi_substrate = 1.0;
+    double phi_min = 0.01;
+    double phi_substrate = 0.5;
     double phi_electrode = 1.0;
+
+    // double phi_min = 1.0;
+    // double phi_substrate = 1.0;
+    // double phi_electrode = 1.0;
     
 
     for (; cell!=endc; ++cell)
@@ -285,7 +285,7 @@ namespace compressed_strip
 
       // if (current_cell_center[2] < 0.003)
       //   phi[cell0_index] = phi_substrate;
-      // else if (current_cell_center[1] > 0.003 && current_cell_center[1] < 0.007)
+      // else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
       //   phi[cell0_index] = phi_electrode;
       // else
       //   phi[cell0_index] = phi_min;
@@ -439,7 +439,7 @@ namespace compressed_strip
 		{
 			if (selected_dofs_z[n])
       {
-				present_solution[n] = (current_time - dT) * velocity_qs;
+				present_solution[n] = - (current_time - dT) * velocity_qs;
       }
 		}
 
