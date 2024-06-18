@@ -270,8 +270,8 @@ namespace compressed_strip
     // double phi_substrate = 0.5;
     // double phi_electrode = 1.0;
 
-    double phi_min = 0.01;
-    double phi_substrate = 0.5;
+    double phi_min = 1.0;
+    double phi_substrate = 1.0;
     double phi_electrode = 1.0;
     
 
@@ -306,8 +306,38 @@ namespace compressed_strip
 
   void ElasticProblem::compute_objective()
   {
+        // loop over cells and put them in their groups
+    typename DoFHandler<DIM>::active_cell_iterator
+    cell = dof_handler.begin_active(),
+    endc = dof_handler.end();
+
+    	FEValues<DIM> fe_values(fe, problemQuadrature,
+			update_values | update_quadrature_points | update_JxW_values);
+
+
+  	unsigned int n_q_points = problemQuadrature.size();
+
+    
+
+    for (; cell!=endc; ++cell)
+    {
+      fe_values.reinit(cell);
+				unsigned int cell_index = cell->active_cell_index();
+				
+				for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+				{
+					for (unsigned int i = 0; i < DIM; i++)
+					{
+            objective += von_misses_stress[cell_index] * fe_values.JxW(q_point);
+					}
+				}
+
+
+    }
 
   }
+  
+
 
 
   void ElasticProblem::assign_material_properties()

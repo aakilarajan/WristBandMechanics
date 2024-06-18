@@ -299,7 +299,7 @@ namespace compressed_strip
     double T_final = 1.0;
     double current_time = 0.0;
     	// double end_disp= 0.0;
-	double L0 = 0.025;
+	double L0 = 0.1;
 	// double strain_increment = 0.0005;
 	double strain_rate = 0.001; //0.001; //todo
 	// double deltat= time_step;
