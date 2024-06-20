@@ -26,7 +26,7 @@ int main ()
             << ep.get_n_dofs()
             << std::endl << std::endl;
 
-  // exit(0);            
+  exit(0);            
 
   ep.solve_forward_problem();
   
