@@ -425,37 +425,39 @@ namespace compressed_strip
   {
     // pulling it in y direction 
 
-    std::vector<bool> side_z = {false, false, true};
-		ComponentMask side_z_mask(side_z);
-    std::vector<bool> selected_dofs_z;
+    // std::vector<bool> side_z = {false, false, true};
+		// ComponentMask side_z_mask(side_z);
+    // std::vector<bool> selected_dofs_z;
 
-		DoFTools::extract_boundary_dofs(dof_handler,
-										side_z_mask,
-										selected_dofs_z,
-										{1});
-
-		// printf current_time, and velocity_qs
-
-		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
-		{
-			if (selected_dofs_z[n])
-      {
-				present_solution[n] = - (current_time - dT) * velocity_qs;
-      }
-		}
-
-		// std::vector<bool> side_yz = {false, true, true};
-		// ComponentMask side_yz_mask(side_yz);
 		// DoFTools::extract_boundary_dofs(dof_handler,
-		// 								side_yz_mask,
-		// 								selected_dofs_yz,
+		// 								side_z_mask,
+		// 								selected_dofs_z,
 		// 								{1});
+
+		// // printf current_time, and velocity_qs
 
 		// for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
 		// {
-		// 	if (selected_dofs_yz[n])
-		// 		present_solution[n] = 0.0;
+		// 	if (selected_dofs_z[n])
+    //   {
+		// 		present_solution[n] = - (current_time - dT) * velocity_qs;
+    //   }
 		// }
+
+
+    // maybe give a simple BC of just pulling the end to touch the cylinder
+    // bending it over a cylinder of radius 7mm
+    double radius_of_cylinder = 7.0e-3;
+    double theta = domain_dimensions[0]/radius_of_cylinder;;
+    
+    double ux_final = radius_of_cylinder * sin(theta);
+    double uy_final = radius_of_cylinder * (1 - cos(theta));
+    
+    for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+	{
+      if ((current_time - dT)*velocity_qs > 1e-6 && current_solution[n] == 0.0)
+        present_solution[n] = solution_u[n]; // this is the end displacement of the cylinder
+   }
   }
 
 
@@ -814,32 +816,6 @@ namespace compressed_strip
   }
 
 
-  // void ElasticProblem::apply_boundaries_and_constraints()
-  // {
-  //   constraints.condense(system_matrix);
-	// 	constraints.condense(system_rhs);
-
-	// 	std::map<types::global_dof_index, double> boundary_values;
-
-	// 	std::vector<bool> encastre = {true, true, true};
-	// 	ComponentMask encastre_mask(encastre);
-	// 	VectorTools::interpolate_boundary_values(dof_handler,
-	// 											 0,
-	// 											 dealii::Functions::ZeroFunction<DIM, double>(DIM),
-	// 											 boundary_values,
-	// 											 encastre_mask);
-
-	// 	VectorTools::interpolate_boundary_values(dof_handler,
-	// 											 1,
-	// 											 dealii::Functions::ZeroFunction<DIM, double>(DIM),
-	// 											 boundary_values,
-	// 											 encastre_mask);
-
-	// 	MatrixTools::apply_boundary_values(boundary_values,
-	// 									   system_matrix,
-	// 									   newton_update,
-	// 									   system_rhs);
-  // }
 
   
 void ElasticProblem::apply_boundaries_and_constraints()
