@@ -265,6 +265,7 @@ namespace compressed_strip
     cell = dof_handler.begin_active(),
     endc = dof_handler.end();
     Point<DIM> current_cell_center;
+    cu_thiccness = 10.0e-6;
 
     double phi_min = 0.01;
     double phi_substrate = 0.5;
@@ -290,7 +291,7 @@ namespace compressed_strip
       // else
       //   phi[cell0_index] = phi_min;
 
-      if (current_cell_center[2] > 0.003)
+      if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
       {
         phi[cell0_index] = phi_min;
         double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;

@@ -3,13 +3,14 @@
 # with actual parameters
 
 # output directory
-WRIST_BAND_OPT_1
+WRIST_BAND_OPT_2
 
 # grid dimensions
-40 15 7
+100 20 20
 
 # domain dimensions
-0.1 0.03 0.01
+#0.1 0.03 0.01
+8.0e-2 2.0e-2 110.0e-6 
 
 # mu and nu
 932.835e6 0.34

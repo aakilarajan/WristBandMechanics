@@ -255,6 +255,7 @@ namespace compressed_strip
     std::vector<bool> homo_dofs;
     std::vector<unsigned int>  grid_dimensions;
     std::vector<double> domain_dimensions;
+    double cu_thiccness;
 
     // std::vector<unsigned int> dead_design_vars;
     // std::vector<bool> dead_design_vars_flags;
