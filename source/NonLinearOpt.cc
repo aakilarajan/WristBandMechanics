@@ -353,6 +353,9 @@ namespace compressed_strip
       
       unsigned int cell0_index = cell->active_cell_index();
       elmMats[cell0_index].init(phi[cell0_index]*mu, nu);
+
+      if (phi[cell0_index] >= 0.9 && phi[cell0_index] < 1.1)
+        elmMats[cell0_index].init(mu_cu, nu_cu);
     }
   }
 
@@ -425,39 +428,52 @@ namespace compressed_strip
   {
     // pulling it in y direction 
 
-    // std::vector<bool> side_z = {false, false, true};
-		// ComponentMask side_z_mask(side_z);
-    // std::vector<bool> selected_dofs_z;
+    std::vector<bool> side_z = {false, false, true};
+		ComponentMask side_z_mask(side_z);
+    std::vector<bool> selected_dofs_z;
+
+		DoFTools::extract_boundary_dofs(dof_handler,
+										side_z_mask,
+										selected_dofs_z,
+										{1});
+    
+    // std::vector<bool> side_x = {true, false, false};
+		// ComponentMask side_x_mask(side_x);
+    // std::vector<bool> selected_dofs_x;
 
 		// DoFTools::extract_boundary_dofs(dof_handler,
-		// 								side_z_mask,
-		// 								selected_dofs_z,
+		// 								side_x_mask,
+		// 								selected_dofs_x,
 		// 								{1});
 
+    // double radius_of_cylinder = 7.0e-3;
+    double radius_of_cylinder = 48.0e-2/PI;
+    double theta = domain_dimensions[0]/radius_of_cylinder;;
+    
+    double ux_final = radius_of_cylinder * sin(theta);
+    double uz_final = radius_of_cylinder * (1 - cos(theta));
 		// // printf current_time, and velocity_qs
 
-		// for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
-		// {
-		// 	if (selected_dofs_z[n])
-    //   {
-		// 		present_solution[n] = - (current_time - dT) * velocity_qs;
-    //   }
-		// }
+    std::cout << ", EndDisp = " << uz_final * (current_time - dT) * velocity_qs << "   " << "--------------------" << std::endl;
+
+
+		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
+		{
+			if (selected_dofs_z[n])
+      {
+				present_solution[n] = - uz_final * (current_time - dT) * velocity_qs;
+      }
+
+      // if (selected_dofs_x[n])
+			// {
+      //   present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
+      // }
+		}
 
 
     // maybe give a simple BC of just pulling the end to touch the cylinder
     // bending it over a cylinder of radius 7mm
-    double radius_of_cylinder = 7.0e-3;
-    double theta = domain_dimensions[0]/radius_of_cylinder;;
     
-    double ux_final = radius_of_cylinder * sin(theta);
-    double uy_final = radius_of_cylinder * (1 - cos(theta));
-    
-    for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
-	{
-      if ((current_time - dT)*velocity_qs > 1e-6 && current_solution[n] == 0.0)
-        present_solution[n] = solution_u[n]; // this is the end displacement of the cylinder
-   }
   }
 
 
@@ -475,7 +491,7 @@ namespace compressed_strip
 		for (; current_time <= T_final; current_time += dT, ++timestep_number)
 		{
 
-			std::cout << "time step " << timestep_number << " at t= " << current_time << ", EndDisp = " << (current_time - dT) * velocity_qs << "   " << "--------------------------------------------------------" << std::endl;
+			std::cout << "time step " << timestep_number << " at t= " << current_time;
 
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
@@ -487,8 +503,10 @@ namespace compressed_strip
 				{
 					initiate_guess();
 				}
-				assemble_system_rhs();
-        assemble_system_matrix();
+				// assemble_system_rhs();
+        // assemble_system_matrix();
+        parallel_assemble_system_rhs();
+        parallel_assemble_system_matrix();
 
 				apply_boundaries_and_constraints();
 				solve();
@@ -830,6 +848,9 @@ void ElasticProblem::apply_boundaries_and_constraints()
 		ComponentMask encastre_mask(encastre);
     ComponentMask z_bc_bend(z_BC);
 
+    std::vector<bool> x_BC = {true, false, false};
+    ComponentMask x_bc_bend(x_BC);
+
 		VectorTools::interpolate_boundary_values(dof_handler,
 												 0,
 												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
@@ -841,6 +862,12 @@ void ElasticProblem::apply_boundaries_and_constraints()
 												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
 												 boundary_values,
 												 z_bc_bend);
+
+		// VectorTools::interpolate_boundary_values(dof_handler,
+		// 										 1,
+		// 										 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+		// 										 boundary_values,
+		// 										 x_bc_bend);
 
 		MatrixTools::apply_boundary_values(boundary_values,
 										   system_matrix,
@@ -1100,6 +1127,7 @@ void ElasticProblem::apply_boundaries_and_constraints()
         goto fileClose;
       }
       dT = T_final/(1.0*load_steps);
+      velocity_qs = 1.0/T_final;
 
       fileClose:
       {
@@ -1175,99 +1203,178 @@ void ElasticProblem::apply_boundaries_and_constraints()
     for (unsigned int i=0; i<copy_data.local_dof_indices.size(); ++i)
       system_rhs[copy_data.local_dof_indices[i]] += copy_data.cell_rhs[i];
 
-    // S33_AreaAvg += copy_data.cell_rhs[copy_data.local_dof_indices.size()];
+  }
+
+
+  void ElasticProblem::local_assemble_system_rhs (const typename DoFHandler<DIM>::active_cell_iterator &cell,
+      AssemblyScratchData                                  &scratch,
+      RhsAssemblyCopyData                                     &copy_data)
+  {
+    const unsigned int dofs_per_cell   = fe.dofs_per_cell;
+    const unsigned int n_q_points      = scratch.fe_values.get_quadrature().size();
+
+    double inv_q_points = 1.0/(1.0*n_q_points);
+
+    Vector<double>       cell_rhs (dofs_per_cell + 1);
+
+    std::vector<std::vector<Tensor<1,DIM> > > old_solution_gradients(n_q_points, std::vector<Tensor<1,DIM>>(DIM));
+
+    cell_rhs = 0.0;
+
+    scratch.fe_values.reinit (cell);
+
+    scratch.fe_values.get_function_gradients(present_solution, old_solution_gradients);
+    
+    unsigned int cell_index = cell->active_cell_index();
+    von_misses_stress[cell_index] = 0.0;
+
+    Tensor<2,DIM3> grad_u;
+    Tensor<2,DIM3> dW_dF;     // piola kirchoff
+    
+
+    for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+    {
+      grad_u = 0.0;
+      dW_dF = 0.0;    
+
+      unsigned int indx = cell_index*n_q_points + q_point;
+
+      get_gradu_tensor(old_solution_gradients[q_point], grad_u);
+      elmMats[cell_index].get_dWdF(grad_u, dW_dF);
+
+      // calculating the stress field. This is some bullshit method. look for better technqiue
+      Tensor<2,DIM3> F_deform_grad, cauchy_stress;
+      elmMats[cell_index].get_F(grad_u, F_deform_grad);
+      cauchy_stress = contract<1, 0>(dW_dF, transpose(F_deform_grad)) / determinant(F_deform_grad);      
+      
+      von_misses_stress[cell_index] += compute_von_misses_stress(cauchy_stress)*inv_q_points;
+
+      for (unsigned int n = 0; n < dofs_per_cell; ++n)
+      {
+        const unsigned int component_n = fe.system_to_component_index(n).first;
+
+        for(unsigned int j = 0; j<DIM; ++j)
+        {
+          cell_rhs(n) -= dW_dF[component_n][j]*scratch.fe_values.shape_grad(n, q_point)[j]*scratch.fe_values.JxW(q_point);
+        }
+      }
+    }
+
+
+    copy_data.cell_rhs = cell_rhs;
+
+    copy_data.local_dof_indices.resize(dofs_per_cell);
+    cell->get_dof_indices (copy_data.local_dof_indices);
+
+  }
+
+  void ElasticProblem::parallel_assemble_system_rhs()
+  {
+    system_rhs = 0.0;
+    
+
+    WorkStream::run(dof_handler.begin_active(),
+                    dof_handler.end(),
+                    *this,
+                    &ElasticProblem::local_assemble_system_rhs,
+                    &ElasticProblem::copy_local_to_global_rhs,
+                    AssemblyScratchData(fe, problemQuadrature, 0),
+                    RhsAssemblyCopyData());
+
+   constraints.condense (system_rhs);
 
   }
 
 
-  // void ElasticProblem::local_assemble_system_rhs (const typename DoFHandler<DIM>::active_cell_iterator &cell,
-  //     AssemblyScratchData                                  &scratch,
-  //     RhsAssemblyCopyData                                     &copy_data)
-  // {
-  //   const unsigned int dofs_per_cell   = fe.dofs_per_cell;
-  //   const unsigned int n_q_points      = scratch.fe_values.get_quadrature().size();
-
-  //   double inv_q_points = 1.0/(1.0*n_q_points);
-
-  //   Vector<double>       cell_rhs (dofs_per_cell + 1);
-
-  //   std::vector<std::vector<Tensor<1,DIM> > > old_solution_gradients(n_q_points, std::vector<Tensor<1,DIM>>(DIM));
-
-  //   Tensor<2,DIM3> Eps;
-  //   Tensor<2,DIM3> dW_dE;
-
-  //   cell_rhs = 0.0;
-
-  //   scratch.fe_values.reinit (cell);
-
-  //   scratch.fe_values.get_function_gradients(present_solution, old_solution_gradients);
-  //   std::vector<Point<DIM>>  q_p = scratch.fe_values.get_quadrature_points();
-  //   Tensor<2,DIM> rot_stress;
-
-  //   unsigned int cell_index = cell->active_cell_index();
 
 
-  //   ave_epsp_eff[cell_index] = 0.0;
-  //   ave_pressure[cell_index] = 0.0;
+  void ElasticProblem::copy_local_to_global_system_matrix(const MatrixAssemblyCopyData &copy_data)
+  {
+    for (unsigned int i=0; i<copy_data.local_dof_indices.size(); ++i)
+      for (unsigned int j=0; j<copy_data.local_dof_indices.size(); ++j)
+      {
+        system_matrix.add(copy_data.local_dof_indices[i],
+                          copy_data.local_dof_indices[j],
+                          copy_data.cell_matrix[i][j]);
+      }
+  }
+  
+  void ElasticProblem::local_assemble_system_matrix(const typename DoFHandler<DIM>::active_cell_iterator &cell,
+      AssemblyScratchData                                  &scratch,
+      MatrixAssemblyCopyData                                     &copy_data)
+  {
+    const unsigned int dofs_per_cell   = fe.dofs_per_cell;
+    const unsigned int n_q_points      = scratch.fe_values.get_quadrature().size();
+
+    double inv_q_points = 1.0/(1.0*n_q_points);
+
+    std::vector<std::vector<Tensor<1,DIM> > > old_solution_gradients(n_q_points, std::vector<Tensor<1,DIM>>(DIM));
+
+    Tensor<2, DIM3> grad_u;;
+    Tensor<4, DIM3> d2W_dF2;     // hessian
+
+    FullMatrix<double> cell_matrix(dofs_per_cell, dofs_per_cell);
+    cell_matrix = 0.0;
+
+    scratch.fe_values.reinit (cell);
+
+    scratch.fe_values.get_function_gradients(present_solution, old_solution_gradients);
+
+    unsigned int cell_index = cell->active_cell_index();
+
+    for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
+    {
+      grad_u = 0.0;
+      d2W_dF2 = 0.0;
+
+      unsigned int indx = cell_index*n_q_points + q_point;
+      get_gradu_tensor(old_solution_gradients[q_point], grad_u);
+      elmMats[cell_index].get_dWdF2(grad_u, d2W_dF2);
+
+      for (unsigned int n = 0; n < dofs_per_cell; ++n)
+      {
+        const unsigned int component_n = fe.system_to_component_index(n).first;
+
+        for (unsigned int m = 0; m < dofs_per_cell; ++m)
+        {
+          const unsigned int component_m = fe.system_to_component_index(m).first;
+
+          for (unsigned int j=0; j<DIM; ++j)
+            for (unsigned int l=0; l<DIM; ++l)
+            {
+              cell_matrix(n,m)
+                  += (d2W_dF2[component_n][j][component_m][l])*
+                                 scratch.fe_values.shape_grad(n, q_point)[j]*scratch.fe_values.shape_grad(m, q_point)[l]
+                                 *scratch.fe_values.JxW(q_point);
+
+            }
+        }
+      }
+    }
+
+    copy_data.local_dof_indices.resize(dofs_per_cell);
+
+    cell->get_dof_indices (copy_data.local_dof_indices);
+    copy_data.cell_matrix = cell_matrix;
+
+  }
 
 
-  //   double sig_zz_contrb = 0.0;
-  //   for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
-  //   {
-  //     unsigned int indx = cell_index*n_q_points + q_point;
-
-  //     Tensor<2,DIM3> *nextEpsp = &((Epsp)[indx]);
-  //     double *nextEpsp_eff  = &((Epsp_eff)[indx]);
-  //     // elmMats[cell_index].set_internal(nextEpsp, nextEpsp_eff, dT);
-  //     get_strain_223(old_solution_gradients[q_point], lambdar, Eps);
-
-  //     // elmMats[cell_index].get_dE(Eps, dW_dE);
-  //     ave_epsp_eff[cell_index] += Epsp_eff[indx]*scratch.fe_values.JxW(q_point);
-  //     pressure[indx] = K*trace(Eps);
-  //     ave_pressure[cell_index] += K*trace(Eps)*scratch.fe_values.JxW(q_point);
+  void ElasticProblem::parallel_assemble_system_matrix()
+  {
+    system_matrix = 0.0;
+    
+    WorkStream::run(dof_handler.begin_active(),
+                    dof_handler.end(),
+                    *this,
+                    &ElasticProblem::local_assemble_system_matrix,
+                    &ElasticProblem::copy_local_to_global_system_matrix,
+                    AssemblyScratchData(fe, problemQuadrature, 0),
+                    MatrixAssemblyCopyData());
+  }
 
 
-  //     sig_zz_contrb += dW_dE[2][2]*scratch.fe_values.JxW(q_point);
 
-  //     for (unsigned int n = 0; n < dofs_per_cell; ++n)
-  //     {
-  //       const unsigned int component_n = fe.system_to_component_index(n).first;
-
-  //       for(unsigned int j = 0; j<DIM; ++j)
-  //       {
-  //         cell_rhs(n) -= dW_dE[component_n][j]*scratch.fe_values.shape_grad(n, q_point)[j]*scratch.fe_values.JxW(q_point);
-  //       }
-  //     }
-  //   }
-
-  //   ave_epsp_eff[cell_index] *= 1.0/cell->measure();
-  //   ave_pressure[cell_index] *= 1.0/cell->measure();
-
-  //   cell_rhs(dofs_per_cell) = sig_zz_contrb;
-  //   copy_data.cell_rhs = cell_rhs;
-
-  //   copy_data.local_dof_indices.resize(dofs_per_cell);
-  //   cell->get_dof_indices (copy_data.local_dof_indices);
-
-  // }
-
-  // void ElasticProblem::parallel_assemble_rhs(unsigned int n)
-  // {
-  //   system_rhs = 0.0;
-  //   S33_AreaAvg = 0.0;
-
-
-  //   WorkStream::run(dof_handler.begin_active(),
-  //                   dof_handler.end(),
-  //                   *this,
-  //                   &ElasticProblem::local_assemble_system_rhs,
-  //                   &ElasticProblem::copy_local_to_global_rhs,
-  //                   AssemblyScratchData(fe, problemQuadrature, n),
-  //                   RhsAssemblyCopyData());
-
-//    constraints.condense (system_rhs);
-
-  // }
 
 }
 

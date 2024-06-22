@@ -6,11 +6,13 @@
 WRIST_BAND_OPT_2
 
 # grid dimensions
-100 20 20
+#100 20 20
+40 10 7
 
 # domain dimensions
 #0.1 0.03 0.01
-8.0e-2 2.0e-2 110.0e-6 
+#8.0e-2 2.0e-2 110.0e-6 
+8.0e-2 2.0e-2 0.001 
 
 # mu and nu
 932.835e6 0.34

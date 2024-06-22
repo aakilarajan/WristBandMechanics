@@ -147,6 +147,9 @@ namespace compressed_strip
 
   private:
 
+
+    // parallel assembly of system rhs
+    void parallel_assemble_system_rhs();
     struct AssemblyScratchData
     {
       AssemblyScratchData (const FiniteElement<DIM> &fe, Quadrature<DIM> &quad, const unsigned int step_);
@@ -155,22 +158,30 @@ namespace compressed_strip
       FEValues<DIM>     fe_values;
       unsigned int step;
     };
-
     struct RhsAssemblyCopyData
     {
       Vector<double>                       cell_rhs;
       std::vector<types::global_dof_index> local_dof_indices;
     };
-
-    void parallel_assemble_rhs(unsigned int n = 0);
-
-
     void local_assemble_system_rhs (const typename DoFHandler<DIM>::active_cell_iterator &cell,
                                 AssemblyScratchData                                  &scratch,
                                 RhsAssemblyCopyData                                     &copy_data);
 
-
     void copy_local_to_global_rhs (const RhsAssemblyCopyData &copy_data);
+
+
+    // parallel assembly of system matrix
+    void parallel_assemble_system_matrix();
+    struct MatrixAssemblyCopyData
+    {
+      FullMatrix<double>                       cell_matrix;
+      std::vector<types::global_dof_index> local_dof_indices;
+    };
+    void local_assemble_system_matrix(const typename DoFHandler<DIM>::active_cell_iterator &cell,
+                                AssemblyScratchData                                  &scratch,
+                                MatrixAssemblyCopyData                                     &copy_data);
+    void copy_local_to_global_system_matrix(const MatrixAssemblyCopyData &copy_data);
+
 
 
 
@@ -199,6 +210,8 @@ namespace compressed_strip
     // void assemble_mass_matrix();
     void assemble_system_matrix();
     void assemble_system_rhs();
+ 
+
     void apply_boundaries_and_constraints();
     double compute_residual();
     void propagate_u();
@@ -314,6 +327,10 @@ namespace compressed_strip
     // some elastic parameters
     double mu =  1.0;
     double nu = 0.3;
+
+    // properties for copper (lambda = 126.48e9, mu = 46.5 e9, density = 8.93e3)
+    double mu_cu = 46.5e9;
+    double nu_cu = 0.35;
 
 //    bool inContact = true;
     bool firstFlag = true;
