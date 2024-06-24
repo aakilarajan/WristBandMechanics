@@ -256,7 +256,7 @@ namespace compressed_strip
     Vector<double>  phi;
     Vector<double>  phi_filtered;
     Vector<double>  von_misses_stress;
-    Vector<double> Cauchy1, Cauchy12, Cauchy2, Cauchy3, Cauchy23, Cauchy13;
+    Vector<double> cauchy1, cauchy12, cauchy2, cauchy3, cauchy23, cauchy13;
 
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;

@@ -251,12 +251,12 @@ namespace compressed_strip
     // setting up von misses stress
     von_misses_stress.reinit(N);
     // initialize all cauchy stress vectors to N size vector
-    Cauchy1.reinit(N);
-    Cauchy2.reinit(N);
-    Cauchy3.reinit(N);
-    Cauchy12.reinit(N);
-    Cauchy13.reinit(N);
-    Cauchy23.reinit(N);
+    cauchy1.reinit(N);
+    cauchy2.reinit(N);
+    cauchy3.reinit(N);
+    cauchy12.reinit(N);
+    cauchy13.reinit(N);
+    cauchy23.reinit(N);
 
     assign_material_properties();
       output_results(0);
@@ -670,12 +670,12 @@ namespace compressed_strip
 
       unsigned int cell_index = cell->active_cell_index();
       von_misses_stress[cell_index] = 0.0;
-      Cauchy1[cell_index] = 0.0;
-      Cauchy2[cell_index] = 0.0;
-      Cauchy3[cell_index] = 0.0;
-      Cauchy12[cell_index] = 0.0;
-      Cauchy13[cell_index] = 0.0;
-      Cauchy23[cell_index] = 0.0;
+      // Cauchy1[cell_index] = 0.0;
+      // Cauchy2[cell_index] = 0.0;
+      // Cauchy3[cell_index] = 0.0;
+      // Cauchy12[cell_index] = 0.0;
+      // Cauchy13[cell_index] = 0.0;
+      // Cauchy23[cell_index] = 0.0;
       
 
       for (unsigned int q_point=0; q_point<n_q_points; ++q_point)
@@ -1033,6 +1033,20 @@ void ElasticProblem::apply_boundaries_and_constraints()
     std::vector<std::string> solutionName_von_misses;
     solutionName_von_misses.push_back("Von_Misses");
 
+    // outputing componenets of stresses
+    std::vector<std::string> solutionName_cau1;
+    solutionName_cau1.push_back("Cau1");
+    std::vector<std::string> solutionName_cau2;
+    solutionName_cau2.push_back("Cau2");
+    std::vector<std::string> solutionName_cau3;
+    solutionName_cau3.push_back("Cau3");
+    std::vector<std::string> solutionName_cau12;
+    solutionName_cau12.push_back("Cau12");
+    std::vector<std::string> solutionName_cau31;
+    solutionName_cau31.push_back("Cau31");
+    std::vector<std::string> solutionName_cau23;
+    solutionName_cau23.push_back("Cau23");
+
     DataOut<DIM> data_out_lagrangian;
 
     data_out_lagrangian.attach_dof_handler (dof_handler);
@@ -1050,7 +1064,12 @@ void ElasticProblem::apply_boundaries_and_constraints()
     // data_out_lagrangian.add_data_vector(ave_epsp_eff, solutionName_epsp);
     // data_out_lagrangian.add_data_vector(ave_pressure, solutionName_ave_p);
     data_out_lagrangian.add_data_vector(phi, solutionName_DIC_ux);
-    data_out_lagrangian.add_data_vector(von_misses_stress, solutionName_von_misses);
+    data_out_lagrangian.add_data_vector(cauchy1, solutionName_cau1);
+    data_out_lagrangian.add_data_vector(cauchy2, solutionName_cau2);
+    data_out_lagrangian.add_data_vector(cauchy3, solutionName_cau3);
+    data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau12);
+    data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau31);
+    data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau23);
 
     data_out_lagrangian.build_patches ();
     data_out_lagrangian.write_vtu (output_lagrangian_solution);
@@ -1243,6 +1262,12 @@ void ElasticProblem::apply_boundaries_and_constraints()
     
     unsigned int cell_index = cell->active_cell_index();
     von_misses_stress[cell_index] = 0.0;
+    cauchy1[cell_index] = 0.0;
+    cauchy2[cell_index] = 0.0;
+    cauchy3[cell_index] = 0.0;
+    cauchy12[cell_index] = 0.0;
+    cauchy13[cell_index] = 0.0;
+    cauchy23[cell_index] = 0.0;
 
     Tensor<2,DIM3> grad_u;
     Tensor<2,DIM3> dW_dF;     // piola kirchoff
@@ -1264,6 +1289,12 @@ void ElasticProblem::apply_boundaries_and_constraints()
       cauchy_stress = contract<1, 0>(dW_dF, transpose(F_deform_grad)) / determinant(F_deform_grad);      
       
       von_misses_stress[cell_index] += compute_von_misses_stress(cauchy_stress)*inv_q_points;
+      cauchy1[cell_index] += cauchy_stress[0][0]*inv_q_points;
+      cauchy2[cell_index] += cauchy_stress[1][1]*inv_q_points;
+      cauchy3[cell_index] += cauchy_stress[2][2]*inv_q_points;
+      cauchy12[cell_index] += cauchy_stress[0][1]*inv_q_points;
+      cauchy13[cell_index] += cauchy_stress[0][2]*inv_q_points;
+      cauchy23[cell_index] += cauchy_stress[1][2]*inv_q_points;
 
       for (unsigned int n = 0; n < dofs_per_cell; ++n)
       {
