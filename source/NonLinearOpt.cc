@@ -460,14 +460,14 @@ namespace compressed_strip
 										selected_dofs_z,
 										{1});
     
-    std::vector<bool> side_x = {true, false, false};
-		ComponentMask side_x_mask(side_x);
-    std::vector<bool> selected_dofs_x;
+    // std::vector<bool> side_x = {true, false, false};
+		// ComponentMask side_x_mask(side_x);
+    // std::vector<bool> selected_dofs_x;
 
-		DoFTools::extract_boundary_dofs(dof_handler,
-										side_x_mask,
-										selected_dofs_x,
-										{1});
+		// DoFTools::extract_boundary_dofs(dof_handler,
+		// 								side_x_mask,
+		// 								selected_dofs_x,
+		// 								{1});
 
     // double radius_of_cylinder = 7.0e-3;
     double radius_of_cylinder = 48.0e-2/PI;
@@ -488,10 +488,10 @@ namespace compressed_strip
 				present_solution[n] = - uz_final * (current_time - dT) * velocity_qs;
       }
 
-      if (selected_dofs_x[n])
-			{
-        present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
-      }
+      // if (selected_dofs_x[n])
+			// {
+      //   present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
+      // }
 		}
 
 
@@ -899,11 +899,11 @@ void ElasticProblem::apply_boundaries_and_constraints()
 												 boundary_values,
 												 z_bc_bend);
 
-		VectorTools::interpolate_boundary_values(dof_handler,
-												 1,
-												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
-												 boundary_values,
-												 x_bc_bend);
+		// VectorTools::interpolate_boundary_values(dof_handler,
+		// 										 1,
+		// 										 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+		// 										 boundary_values,
+		// 										 x_bc_bend);
 
 		MatrixTools::apply_boundary_values(boundary_values,
 										   system_matrix,
