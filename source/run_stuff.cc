@@ -4,8 +4,22 @@
 
 using namespace dealii;
 
+void bc_check()
+{
+  double a = 25.5;
+  double b = 1.3;
+
+  std::cout << (int) (a / b) << std::endl;
+  std::cout << b * ((double) ((int) (a / b))) << std::endl;
+  std::cout << a - b * ((double) ((int) (a / b)))<< std::endl;
+}
+
 int main ()
 {
+  bc_check();
+  exit(0);
+
+
   compressed_strip::ElasticProblem ep;
 
   char fileName[MAXLINE];
@@ -26,7 +40,7 @@ int main ()
             << ep.get_n_dofs()
             << std::endl << std::endl;
 
-  // exit(0);            
+  exit(0);            
 
   ep.solve_forward_problem();
   

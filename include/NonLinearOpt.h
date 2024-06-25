@@ -274,6 +274,7 @@ namespace compressed_strip
     std::vector<unsigned int>  grid_dimensions;
     std::vector<double> domain_dimensions;
     double cu_thiccness;
+    double cu_width;
 
     // std::vector<unsigned int> dead_design_vars;
     // std::vector<bool> dead_design_vars_flags;

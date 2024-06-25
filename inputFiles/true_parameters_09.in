@@ -3,16 +3,14 @@
 # with actual parameters
 
 # output directory
-WRIST_BAND_OPT_9
+SHANTANU_FATIGUE_TESTING_CHECK_01
 
 # grid dimensions
-#100 20 20
-40 10 7
+150 50 20
+#40 10 7
 
 # domain dimensions
-#0.1 0.03 0.01
-#8.0e-2 2.0e-2 110.0e-6 
-8.0e-2 2.0e-2 0.005 
+8.0e-2 2.0e-2 100.0e-6
 
 # mu and nu
 932.835e6 0.34
