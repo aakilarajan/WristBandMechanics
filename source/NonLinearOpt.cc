@@ -317,6 +317,55 @@ namespace compressed_strip
   }
 
 
+  void ElasticProblem::compute_objective()
+  {
+        typename DoFHandler<DIM>::active_cell_iterator
+      cell = dof_handler.begin_active(),
+      endc = dof_handler.end();
+    
+    for (; cell!=endc; ++cell)
+    {
+      
+      unsigned int cell_index = cell->active_cell_index();
+      if (cycles_to_failure[cell_index] >= 1000.0 && cycles_to_failure[cell_index] <= 1.0e8)
+        objective += 1.0/ cycles_to_failure[cell_index];
+        
+    }
+  }
+
+  // void ElasticProblem::compute_objective()
+  // {
+  //       // loop over cells and put them in their groups
+  //   typename DoFHandler<DIM>::active_cell_iterator
+  //   cell = dof_handler.begin_active(),
+  //   endc = dof_handler.end();
+
+  //   	FEValues<DIM> fe_values(fe, problemQuadrature,
+	// 		update_values | update_quadrature_points | update_JxW_values);
+
+
+  // 	unsigned int n_q_points = problemQuadrature.size();
+
+    
+
+  //   for (; cell!=endc; ++cell)
+  //   {
+  //     fe_values.reinit(cell);
+	// 			unsigned int cell_index = cell->active_cell_index();
+				
+	// 			for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
+	// 			{
+	// 				for (unsigned int i = 0; i < DIM; i++)
+	// 				{
+  //           objective += von_misses_stress[cell_index] * fe_values.JxW(q_point);
+	// 				}
+	// 			}
+
+
+  //   }
+
+  // }
+
   void ElasticProblem::assign_phi()
   {
 
@@ -345,59 +394,27 @@ namespace compressed_strip
 
       phi[cell0_index] = phi_substrate;
 
-      // if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
-      //   phi[cell0_index] = phi_substrate;
-      // else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
-      //   phi[cell0_index] = phi_electrode;
-      // else
-      //   phi[cell0_index] = phi_min;
-
-      if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
-      {
+      if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
+        phi[cell0_index] = phi_substrate;
+      else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
+        phi[cell0_index] = phi_electrode;
+      else
         phi[cell0_index] = phi_min;
-        double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
-        double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
+
+      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
+      // {
+      //   phi[cell0_index] = phi_min;
+      //   double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+      //   double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
         
-        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
-          phi[cell0_index] = phi_electrode;
-      }
+      //   if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+      //     phi[cell0_index] = phi_electrode;
+      // }
 
     }
     
   }
 
-  void ElasticProblem::compute_objective()
-  {
-        // loop over cells and put them in their groups
-    typename DoFHandler<DIM>::active_cell_iterator
-    cell = dof_handler.begin_active(),
-    endc = dof_handler.end();
-
-    	FEValues<DIM> fe_values(fe, problemQuadrature,
-			update_values | update_quadrature_points | update_JxW_values);
-
-
-  	unsigned int n_q_points = problemQuadrature.size();
-
-    
-
-    for (; cell!=endc; ++cell)
-    {
-      fe_values.reinit(cell);
-				unsigned int cell_index = cell->active_cell_index();
-				
-				for (unsigned int q_point = 0; q_point < n_q_points; ++q_point)
-				{
-					for (unsigned int i = 0; i < DIM; i++)
-					{
-            objective += von_misses_stress[cell_index] * fe_values.JxW(q_point);
-					}
-				}
-
-
-    }
-
-  }
   
 
 
@@ -554,7 +571,7 @@ namespace compressed_strip
 		{
 
       if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
-			  std::cout << "time step " << timestep_number << " at t= " << current_time;
+			  std::cout << "time step " << timestep_number << " at t= " << current_time <<", objective = " << objective;
 
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
@@ -591,6 +608,11 @@ namespace compressed_strip
 			if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
 			{
         compute_fatigue_data();
+
+        // computing fatigue based objective
+        objective = 0.0;
+        compute_objective();
+
         std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
 				output_results((timestep_number));
 			}
