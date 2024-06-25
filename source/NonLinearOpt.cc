@@ -32,7 +32,7 @@
 #define DIM 3
 #define DIM_IP 2
 #define DIM3 3
-#define STEP_OUT 1
+#define STEP_OUT 10
 #define PI 3.14159
 
 
@@ -82,18 +82,32 @@ namespace compressed_strip
 
 
   // this will give an error for DIM != 3
+  // inline
+  // double compute_von_misses_stress(Tensor<2,DIM> &cauchy_stress)
+  // {
+  //   double von_misses = 0.0;
+
+  //   von_misses += 0.5*(cauchy_stress[0][0] - cauchy_stress[1][1])*(cauchy_stress[0][0] - cauchy_stress[1][1]);
+  //   von_misses += 0.5*(cauchy_stress[1][1] - cauchy_stress[2][2])*(cauchy_stress[1][1] - cauchy_stress[2][2]);
+  //   von_misses += 0.5*(cauchy_stress[2][2] - cauchy_stress[0][0])*(cauchy_stress[2][2] - cauchy_stress[0][0]);
+
+  //   von_misses += 3.0*(cauchy_stress[0][1] * cauchy_stress[0][1] + 
+  //                      cauchy_stress[1][2] * cauchy_stress[1][2] + 
+  //                      cauchy_stress[2][0] * cauchy_stress[2][0]);
+
+  //   return von_misses;
+
+  // }
   inline
   double compute_von_misses_stress(Tensor<2,DIM> &cauchy_stress)
   {
     double von_misses = 0.0;
 
     von_misses += 0.5*(cauchy_stress[0][0] - cauchy_stress[1][1])*(cauchy_stress[0][0] - cauchy_stress[1][1]);
-    von_misses += 0.5*(cauchy_stress[1][1] - cauchy_stress[2][2])*(cauchy_stress[1][1] - cauchy_stress[2][2]);
-    von_misses += 0.5*(cauchy_stress[2][2] - cauchy_stress[0][0])*(cauchy_stress[2][2] - cauchy_stress[0][0]);
+    von_misses += 0.5*(cauchy_stress[1][1])*(cauchy_stress[1][1]);
+    von_misses += 0.5*(- cauchy_stress[0][0])*(- cauchy_stress[0][0]);
 
-    von_misses += 3.0*(cauchy_stress[0][1] * cauchy_stress[0][1] + 
-                       cauchy_stress[1][2] * cauchy_stress[1][2] + 
-                       cauchy_stress[2][0] * cauchy_stress[2][0]);
+    von_misses += 3.0*(cauchy_stress[0][1] * cauchy_stress[0][1]);
 
     return von_misses;
 
@@ -293,22 +307,22 @@ namespace compressed_strip
 
       phi[cell0_index] = phi_substrate;
 
-      if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
-        phi[cell0_index] = phi_substrate;
-      else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
-        phi[cell0_index] = phi_electrode;
-      else
-        phi[cell0_index] = phi_min;
-
-      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
-      // {
+      // if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
+      //   phi[cell0_index] = phi_substrate;
+      // else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
+      //   phi[cell0_index] = phi_electrode;
+      // else
       //   phi[cell0_index] = phi_min;
-      //   double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
-      //   double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
+
+      if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
+      {
+        phi[cell0_index] = phi_min;
+        double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+        double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
         
-      //   if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
-      //     phi[cell0_index] = phi_electrode;
-      // }
+        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+          phi[cell0_index] = phi_electrode;
+      }
 
     }
     
@@ -433,7 +447,7 @@ namespace compressed_strip
 	// 	}
   // }
 
-  void ElasticProblem::initiate_guess()
+  void ElasticProblem::initiate_guess(unsigned int timestep_number)
   {
     // pulling it in y direction 
 
@@ -446,14 +460,14 @@ namespace compressed_strip
 										selected_dofs_z,
 										{1});
     
-    // std::vector<bool> side_x = {true, false, false};
-		// ComponentMask side_x_mask(side_x);
-    // std::vector<bool> selected_dofs_x;
+    std::vector<bool> side_x = {true, false, false};
+		ComponentMask side_x_mask(side_x);
+    std::vector<bool> selected_dofs_x;
 
-		// DoFTools::extract_boundary_dofs(dof_handler,
-		// 								side_x_mask,
-		// 								selected_dofs_x,
-		// 								{1});
+		DoFTools::extract_boundary_dofs(dof_handler,
+										side_x_mask,
+										selected_dofs_x,
+										{1});
 
     // double radius_of_cylinder = 7.0e-3;
     double radius_of_cylinder = 48.0e-2/PI;
@@ -463,7 +477,8 @@ namespace compressed_strip
     double uz_final = radius_of_cylinder * (1 - cos(theta));
 		// // printf current_time, and velocity_qs
 
-    std::cout << ", EndDisp = " << uz_final * (current_time - dT) * velocity_qs << "   " << "--------------------" << std::endl;
+    if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
+      std::cout << ", EndDisp = " << uz_final * (current_time - dT) * velocity_qs << "   " << "--------------------" << std::endl;
 
 
 		for (unsigned int n = 0; n < dof_handler.n_dofs(); ++n)
@@ -473,10 +488,10 @@ namespace compressed_strip
 				present_solution[n] = - uz_final * (current_time - dT) * velocity_qs;
       }
 
-      // if (selected_dofs_x[n])
-			// {
-      //   present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
-      // }
+      if (selected_dofs_x[n])
+			{
+        present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
+      }
 		}
 
 
@@ -500,7 +515,8 @@ namespace compressed_strip
 		for (; current_time <= T_final; current_time += dT, ++timestep_number)
 		{
 
-			std::cout << "time step " << timestep_number << " at t= " << current_time;
+      if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
+			  std::cout << "time step " << timestep_number << " at t= " << current_time;
 
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
@@ -510,7 +526,7 @@ namespace compressed_strip
 				
         if (counter == 1)
 				{
-					initiate_guess();
+					initiate_guess(timestep_number);
 				}
 				// assemble_system_rhs();
         // assemble_system_matrix();
@@ -520,7 +536,10 @@ namespace compressed_strip
 				apply_boundaries_and_constraints();
 				solve();
 				last_residual_norm = compute_residual();
-				std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
+
+        // if (timestep_number % STEP_OUT == 0)
+				//   std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
+
 				setup_system(false);
 				++counter;
 			} // newton iteration done
@@ -531,8 +550,9 @@ namespace compressed_strip
 			propagate_u();
 			// calculate_end_disp(solution_u);
 
-			if (timestep_number % STEP_OUT == 0)
+			if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
 			{
+        std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
 				output_results((timestep_number));
 			}
 		}
@@ -879,11 +899,11 @@ void ElasticProblem::apply_boundaries_and_constraints()
 												 boundary_values,
 												 z_bc_bend);
 
-		// VectorTools::interpolate_boundary_values(dof_handler,
-		// 										 1,
-		// 										 dealii::Functions::ZeroFunction<DIM, double>(DIM),
-		// 										 boundary_values,
-		// 										 x_bc_bend);
+		VectorTools::interpolate_boundary_values(dof_handler,
+												 1,
+												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+												 boundary_values,
+												 x_bc_bend);
 
 		MatrixTools::apply_boundary_values(boundary_values,
 										   system_matrix,
@@ -1063,6 +1083,7 @@ void ElasticProblem::apply_boundaries_and_constraints()
 
     // data_out_lagrangian.add_data_vector(ave_epsp_eff, solutionName_epsp);
     // data_out_lagrangian.add_data_vector(ave_pressure, solutionName_ave_p);
+    data_out_lagrangian.add_data_vector(von_misses_stress, solutionName_von_misses);
     data_out_lagrangian.add_data_vector(phi, solutionName_DIC_ux);
     data_out_lagrangian.add_data_vector(cauchy1, solutionName_cau1);
     data_out_lagrangian.add_data_vector(cauchy2, solutionName_cau2);

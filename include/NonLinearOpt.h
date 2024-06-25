@@ -216,7 +216,7 @@ namespace compressed_strip
     double compute_residual();
     void propagate_u();
 
-    void initiate_guess();
+    void initiate_guess(unsigned int timestep_number);
     // std::vector<bool> selected_dofs_x;
     // std::vector<bool> selected_dofs_yz;
 
