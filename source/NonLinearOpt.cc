@@ -272,12 +272,50 @@ namespace compressed_strip
     cauchy13.reinit(N);
     cauchy23.reinit(N);
 
+    // initialize fatigue field values
+    se_goodman.reinit(N);
+    cycles_to_failure.reinit(N);
+
     assign_material_properties();
       output_results(0);
 
     }
 
   }
+
+  void ElasticProblem::compute_fatigue_data()
+  {
+    // loop over cells and put them in their groups
+    typename DoFHandler<DIM>::active_cell_iterator
+      cell = dof_handler.begin_active(),
+      endc = dof_handler.end();
+    
+    for (; cell!=endc; ++cell)
+    {
+      
+      unsigned int cell_index = cell->active_cell_index();
+      double stress_for_computing_fatigue = cauchy1[cell_index];
+
+      if (stress_for_computing_fatigue >= 2.0 * su_ultimate_strength)
+      {
+        // std::cout << "XXXXXXXXXXX         MATERIAL FAILURE DETECTED AT CELL " << cell_index << "         XXXXXXXXXXX" << std::endl;
+        se_goodman[cell_index] = su_ultimate_strength;
+        cycles_to_failure[cell_index] = 0.0;
+      }
+      else
+      {
+        se_goodman[cell_index] = stress_for_computing_fatigue/(1.0 - stress_for_computing_fatigue/(2.0 * su_ultimate_strength));
+        cycles_to_failure[cell_index] = 0.5 * pow( (se_goodman[cell_index] /303.9), 28.9);
+      }
+
+      if (cycles_to_failure[cell_index] <= 1000.0)
+        cycles_to_failure[cell_index] = 1000.0;
+      else if (cycles_to_failure[cell_index] > 1.0e8)
+        cycles_to_failure[cell_index] = 1.0e8;
+        
+    }
+  }
+
 
   void ElasticProblem::assign_phi()
   {
@@ -552,6 +590,7 @@ namespace compressed_strip
 
 			if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
 			{
+        compute_fatigue_data();
         std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
 				output_results((timestep_number));
 			}
@@ -1067,6 +1106,12 @@ void ElasticProblem::apply_boundaries_and_constraints()
     std::vector<std::string> solutionName_cau23;
     solutionName_cau23.push_back("Cau23");
 
+    // fatigue data output
+    std::vector<std::string> solutionName_se;
+    solutionName_se.push_back("Se");
+    std::vector<std::string> solutionName_Nf;
+    solutionName_Nf.push_back("Cyc to failure");
+
     DataOut<DIM> data_out_lagrangian;
 
     data_out_lagrangian.attach_dof_handler (dof_handler);
@@ -1091,6 +1136,10 @@ void ElasticProblem::apply_boundaries_and_constraints()
     data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau12);
     data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau31);
     data_out_lagrangian.add_data_vector(cauchy12, solutionName_cau23);
+
+    // adding fatigue data
+    data_out_lagrangian.add_data_vector(se_goodman, solutionName_se);
+    data_out_lagrangian.add_data_vector(cycles_to_failure, solutionName_Nf);
 
     data_out_lagrangian.build_patches ();
     data_out_lagrangian.write_vtu (output_lagrangian_solution);

@@ -257,6 +257,10 @@ namespace compressed_strip
     Vector<double>  phi_filtered;
     Vector<double>  von_misses_stress;
     Vector<double> cauchy1, cauchy12, cauchy2, cauchy3, cauchy23, cauchy13;
+    Vector<double> se_goodman;
+    Vector<double> cycles_to_failure;
+
+    void compute_fatigue_data();
 
     Vector<double>       system_rhs;
     Vector<double>       system_rhs_just_loads;
@@ -332,6 +336,7 @@ namespace compressed_strip
     // properties for copper (lambda = 126.48e9, mu = 46.5 e9, density = 8.93e3)
     double mu_cu = 46.5e9;
     double nu_cu = 0.35;
+    double su_ultimate_strength = 317.4e6;
 
 //    bool inContact = true;
     bool firstFlag = true;
