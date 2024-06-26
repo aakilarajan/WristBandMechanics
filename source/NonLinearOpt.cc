@@ -376,7 +376,7 @@ namespace compressed_strip
     Point<DIM> current_cell_center;
     cu_thiccness = 10.0e-6;
     // cu_thiccness = domain_dimensions[2]/5.0;
-    cu_width = 1000.0e-6;
+    cu_width = 3000.0e-6;
     double w_freq = 10.0;
 
     double phi_min = 0.01;
@@ -403,32 +403,32 @@ namespace compressed_strip
       // else
       //   phi[cell0_index] = phi_min;
 
-      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
-      // {
-      //   phi[cell0_index] = phi_min;
-      //   // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
-      //   // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
-      //   double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
-      //   double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
-        
-      //   if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
-      //     phi[cell0_index] = phi_electrode;
-      // }
-
-      // serpentine - not exactly, but close to serpentine.
-      
       if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
       {
         phi[cell0_index] = phi_min;
-        double center_line  = 0.0;
-        double serp_radius = 225.0e-6;
-        double serp_dia = 2.0 * serp_radius;
-
-        double x_prime = current_cell_center[0] - ( 1.0) ;
-
+        // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+        // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
         double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
         double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
+        
+        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+          phi[cell0_index] = phi_electrode;
       }
+
+      // serpentine - not exactly, but close to serpentine.
+      
+      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
+      // {
+      //   phi[cell0_index] = phi_min;
+      //   double center_line  = 0.0;
+      //   double serp_radius = 225.0e-6;
+      //   double serp_dia = 2.0 * serp_radius;
+
+      //   double x_prime = current_cell_center[0] - ( ) ;
+
+      //   double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
+      //   double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
+      // }
 
 
     }
@@ -545,7 +545,7 @@ namespace compressed_strip
 		// 								{1});
 
     // double radius_of_cylinder = 7.0e-3;
-    double radius_of_cylinder = 48.0e-2/PI;
+    double radius_of_cylinder = 100.0e-2/PI;
     double theta = domain_dimensions[0]/radius_of_cylinder;;
     
     double ux_final = radius_of_cylinder * sin(theta);
@@ -627,11 +627,10 @@ namespace compressed_strip
 
 			if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
 			{
-        compute_fatigue_data();
-
         // computing fatigue based objective
-        objective = 0.0;
-        compute_objective();
+        // compute_fatigue_data();
+        // objective = 0.0;
+        // compute_objective();
 
         std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
 				output_results((timestep_number));

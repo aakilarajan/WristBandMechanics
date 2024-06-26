@@ -6,11 +6,11 @@
 SHANTANU_FATIGUE_TESTING_CHECK_01
 
 # grid dimensions
-150 50 20
-#40 10 7
+#100 20 10
+40 10 7
 
 # domain dimensions
-8.0e-2 2.0e-2 100.0e-6
+8.0e-2 2.0e-2 100.0e-5
 
 # mu and nu
 932.835e6 0.34
@@ -19,4 +19,4 @@ SHANTANU_FATIGUE_TESTING_CHECK_01
 2 2 2
 
 # final time, and steps
-200.0 200
+200.0 1000
