@@ -948,7 +948,19 @@ namespace compressed_strip
 		// current_solution.add(steplength,newton_update);
 		present_solution += newton_update;
 
-    double rough_cond_num = system_matrix.cond();
+		// checking if the condition number is ill-posed //
+//    Vector<double> system_matrix_diagonal_values_max, system_matrix_diagonal_values_min;
+//    system_matrix_diagonal_values_max.reinit(present_solution.size());
+//    system_matrix_diagonal_values_min.reinit(present_solution.size());
+//
+//    for (unsigned int i = 0; i < present_solution.size(); i++)
+//    {
+//    	system_matrix_diagonal_values_max[i] = fabs( system_matrix.diag_element(i));
+//    	system_matrix_diagonal_values_min[i] = fabs( 1.0 / system_matrix.diag_element(i));
+//    }
+//
+//    double rough_cond_num = system_matrix_diagonal_values_max.linfty_norm() * system_matrix_diagonal_values_min.linfty_norm();
+//    std::cout << " ----- condition number : " << rough_cond_num << std::endl;
   }
 
 
