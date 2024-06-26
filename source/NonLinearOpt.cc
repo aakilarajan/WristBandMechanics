@@ -424,7 +424,7 @@ namespace compressed_strip
         double serp_radius = 225.0e-6;
         double serp_dia = 2.0 * serp_radius;
 
-        double x_prime = current_cell_center[0] - ( ) ;
+        double x_prime = current_cell_center[0] - ( 1.0) ;
 
         double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
         double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
