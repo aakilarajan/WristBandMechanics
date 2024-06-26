@@ -7,7 +7,8 @@ SHANTANU_FATIGUE_TESTING_CHECK_01
 
 # grid dimensions
 #100 20 10
-40 10 7
+#40 10 7
+40 20 10
 
 # domain dimensions
 8.0e-2 2.0e-2 100.0e-5

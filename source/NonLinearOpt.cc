@@ -374,10 +374,10 @@ namespace compressed_strip
     cell = dof_handler.begin_active(),
     endc = dof_handler.end();
     Point<DIM> current_cell_center;
-    cu_thiccness = 10.0e-6;
+    cu_thiccness = 100.0e-6;
     // cu_thiccness = domain_dimensions[2]/5.0;
     cu_width = 3000.0e-6;
-    double w_freq = 10.0;
+    double w_freq = 5.0;
 
     double phi_min = 0.01;
     double phi_substrate = 0.5;
@@ -947,6 +947,8 @@ namespace compressed_strip
 		constraints.distribute(newton_update);
 		// current_solution.add(steplength,newton_update);
 		present_solution += newton_update;
+
+    double rough_cond_num = system_matrix.cond();
   }
 
 
