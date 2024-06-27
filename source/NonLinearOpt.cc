@@ -109,6 +109,8 @@ namespace compressed_strip
 
     von_misses += 3.0*(cauchy_stress[0][1] * cauchy_stress[0][1]);
 
+    von_misses = sqrt(von_misses);
+
     return von_misses;
 
   }
@@ -374,7 +376,7 @@ namespace compressed_strip
     cell = dof_handler.begin_active(),
     endc = dof_handler.end();
     Point<DIM> current_cell_center;
-    cu_thiccness = 100.0e-6;
+    cu_thiccness = 50.0e-6;
     // cu_thiccness = domain_dimensions[2]/5.0;
     cu_width = 3000.0e-6;
     double w_freq = 5.0;
@@ -596,7 +598,7 @@ namespace compressed_strip
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
 
-			while ((last_residual_norm > 1.0e-7) && (counter < 10))
+			while ((last_residual_norm > 1.0e-7) && (counter < 15))
 			{ // start newton
 				
         if (counter == 1)
@@ -632,7 +634,10 @@ namespace compressed_strip
         // objective = 0.0;
         // compute_objective();
 
-        std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
+        if (counter >= 13)
+          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << "  XXXXXXXXXXXXXXXXXXX WATCH OUT FOR NR CONVERGENCE XXXXXXXXXXX" << std::endl;  
+        else
+          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
 				output_results((timestep_number));
 			}
 		}
@@ -949,18 +954,18 @@ namespace compressed_strip
 		present_solution += newton_update;
 
 		// checking if the condition number is ill-posed //
-//    Vector<double> system_matrix_diagonal_values_max, system_matrix_diagonal_values_min;
-//    system_matrix_diagonal_values_max.reinit(present_solution.size());
-//    system_matrix_diagonal_values_min.reinit(present_solution.size());
-//
-//    for (unsigned int i = 0; i < present_solution.size(); i++)
-//    {
-//    	system_matrix_diagonal_values_max[i] = fabs( system_matrix.diag_element(i));
-//    	system_matrix_diagonal_values_min[i] = fabs( 1.0 / system_matrix.diag_element(i));
-//    }
-//
-//    double rough_cond_num = system_matrix_diagonal_values_max.linfty_norm() * system_matrix_diagonal_values_min.linfty_norm();
-//    std::cout << " ----- condition number : " << rough_cond_num << std::endl;
+  //  Vector<double> system_matrix_diagonal_values_max, system_matrix_diagonal_values_min;
+  //  system_matrix_diagonal_values_max.reinit(present_solution.size());
+  //  system_matrix_diagonal_values_min.reinit(present_solution.size());
+
+  //  for (unsigned int i = 0; i < present_solution.size(); i++)
+  //  {
+  //  	system_matrix_diagonal_values_max[i] = fabs( system_matrix.diag_element(i));
+  //  	system_matrix_diagonal_values_min[i] = fabs( 1.0 / system_matrix.diag_element(i));
+  //  }
+
+  //  double rough_cond_num = system_matrix_diagonal_values_max.linfty_norm() * system_matrix_diagonal_values_min.linfty_norm();
+  //  std::cout << " ----- condition number : " << rough_cond_num << std::endl;
   }
 
 
