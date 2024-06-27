@@ -398,24 +398,25 @@ namespace compressed_strip
 
       phi[cell0_index] = phi_substrate;
 
-      // if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
-      //   phi[cell0_index] = phi_substrate;
-      // else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
-      //   phi[cell0_index] = phi_electrode;
-      // else
-      //   phi[cell0_index] = phi_min;
-
-      if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
-      {
+      if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
+        phi[cell0_index] = phi_substrate;
+      else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
+        phi[cell0_index] = phi_electrode;
+      else
         phi[cell0_index] = phi_min;
-        // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
-        // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
-        double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
-        double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
+
+      // sinusoidal copper film
+      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
+      // {
+      //   phi[cell0_index] = phi_min;
+      //   // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+      //   // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
+      //   double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
+      //   double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
         
-        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
-          phi[cell0_index] = phi_electrode;
-      }
+      //   if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+      //     phi[cell0_index] = phi_electrode;
+      // }
 
       // serpentine - not exactly, but close to serpentine.
       
@@ -547,15 +548,11 @@ namespace compressed_strip
 										{1});
 
     // double radius_of_cylinder = 7.0e-3;
-    double radius_of_cylinder = 20.0e-2/PI;
+    double radius_of_cylinder = 100.0e-2/PI;
     double theta = domain_dimensions[0]/radius_of_cylinder;;
     
-    // double ux_final = radius_of_cylinder * (1 - sin(theta));
-    double ux_final = domain_dimensions[0] - radius_of_cylinder * (sin(theta));
+    double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
     double uz_final = radius_of_cylinder * (1 - cos(theta));
-
-    if (timestep_number == 1)
-      std::cout << "Initial displacement = " << uz_final  << ", " << ux_final << std::endl;
 		// // printf current_time, and velocity_qs
 
     if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
@@ -569,10 +566,10 @@ namespace compressed_strip
 				present_solution[n] = - uz_final * (current_time - dT) * velocity_qs;
       }
 
-      if (selected_dofs_x[n])
-			{
-        present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
-      }
+      // if (selected_dofs_x[n])
+			// {
+      //   present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
+      // }
 		}
 
 
@@ -936,7 +933,7 @@ namespace compressed_strip
 
   void ElasticProblem::solve()
   {
-    if (dof_handler.n_dofs() < 10000)
+    if (dof_handler.n_dofs() < 15000)
 		{
 			SparseDirectUMFPACK A_direct;
 			A_direct.initialize(system_matrix);
@@ -969,7 +966,7 @@ namespace compressed_strip
   //  }
 
   //  double rough_cond_num = system_matrix_diagonal_values_max.linfty_norm() * system_matrix_diagonal_values_min.linfty_norm();
-  //  std::cout << " ----- condition number : " << rough_cond_num << std::endl;
+  //  std::cout << " ----- approximate condition number : " << rough_cond_num << std::endl;
   }
 
 
@@ -1002,11 +999,11 @@ void ElasticProblem::apply_boundaries_and_constraints()
 												 boundary_values,
 												 z_bc_bend);
 
-		VectorTools::interpolate_boundary_values(dof_handler,
-												 1,
-												 dealii::Functions::ZeroFunction<DIM, double>(DIM),
-												 boundary_values,
-												 x_bc_bend);
+		// VectorTools::interpolate_boundary_values(dof_handler,
+		// 										 1,
+		// 										 dealii::Functions::ZeroFunction<DIM, double>(DIM),
+		// 										 boundary_values,
+		// 										 x_bc_bend);
 
 		MatrixTools::apply_boundary_values(boundary_values,
 										   system_matrix,

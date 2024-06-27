@@ -1,0 +1,23 @@
+# TEST INPUT FILE
+# first test for running the wrist band bending
+# with actual parameters
+
+# output directory
+SHANTANU_FATIGUE_TESTING_CHECK_03
+
+# grid dimensions
+#20 8 5
+#40 10 7
+40 20 3
+
+# domain dimensions
+8.0e-2 2.0e-2 100.0e-6
+
+# mu and nu
+932.835e6 0.34
+
+# number gauss points
+2 2 2
+
+# final time, and steps
+100.0 500
