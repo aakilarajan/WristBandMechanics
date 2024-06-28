@@ -259,6 +259,8 @@ namespace compressed_strip
     Vector<double> cauchy1, cauchy12, cauchy2, cauchy3, cauchy23, cauchy13;
     Vector<double> se_goodman;
     Vector<double> cycles_to_failure;
+    double percentage_trace_failure;
+    double trace_length;
 
     void compute_fatigue_data();
 
@@ -328,6 +330,9 @@ namespace compressed_strip
 
 
 
+    double newton_tol = 1.0e-8;
+    unsigned int newton_maxIter = 200;
+
     // double density = 1.0;
 
     // some elastic parameters
@@ -338,6 +343,7 @@ namespace compressed_strip
     double mu_cu = 46.5e9;
     double nu_cu = 0.35;
     double su_ultimate_strength = 317.4e6;
+    double sy_yield = 260.2e6;
 
 //    bool inContact = true;
     bool firstFlag = true;

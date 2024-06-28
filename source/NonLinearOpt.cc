@@ -292,30 +292,44 @@ namespace compressed_strip
       cell = dof_handler.begin_active(),
       endc = dof_handler.end();
     
+    double damaged_trace = 0.0;
     for (; cell!=endc; ++cell)
     {
       
       unsigned int cell_index = cell->active_cell_index();
       double stress_for_computing_fatigue = cauchy1[cell_index];
+      cycles_to_failure[cell_index] = 1.0e10;
 
-      if (stress_for_computing_fatigue >= 2.0 * su_ultimate_strength)
+      if (stress_for_computing_fatigue > 0.0)
       {
-        // std::cout << "XXXXXXXXXXX         MATERIAL FAILURE DETECTED AT CELL " << cell_index << "         XXXXXXXXXXX" << std::endl;
-        se_goodman[cell_index] = su_ultimate_strength;
-        cycles_to_failure[cell_index] = 0.0;
-      }
-      else
-      {
-        se_goodman[cell_index] = stress_for_computing_fatigue/(1.0 - stress_for_computing_fatigue/(2.0 * su_ultimate_strength));
-        cycles_to_failure[cell_index] = 0.5 * pow( (se_goodman[cell_index] /303.9), 28.9);
+        se_goodman[cell_index] = stress_for_computing_fatigue;
+        // cycles_to_failure[cell_index] = 0.5 * pow( (se_goodman[cell_index] /303.9), 28.9);
+        cycles_to_failure[cell_index] = 0.5 * pow( (se_goodman[cell_index] / (45.0e3)), 2.8902);
+
+        if (cycles_to_failure[cell_index] < 1.0e7)
+          damaged_trace += 1.0;
       }
 
-      if (cycles_to_failure[cell_index] <= 1000.0)
-        cycles_to_failure[cell_index] = 1000.0;
-      else if (cycles_to_failure[cell_index] > 1.0e8)
-        cycles_to_failure[cell_index] = 1.0e8;
+      // if (stress_for_computing_fatigue >= 2.0 * su_ultimate_strength)
+      // {
+      //   // std::cout << "XXXXXXXXXXX         MATERIAL FAILURE DETECTED AT CELL " << cell_index << "         XXXXXXXXXXX" << std::endl;
+      //   se_goodman[cell_index] = su_ultimate_strength;
+      //   cycles_to_failure[cell_index] = 0.0;
+      // }
+      // else
+      // {
+      //   se_goodman[cell_index] = stress_for_computing_fatigue/(1.0 - stress_for_computing_fatigue/(2.0 * su_ultimate_strength));
+      //   cycles_to_failure[cell_index] = 0.5 * pow( (se_goodman[cell_index] /303.9), 28.9);
+      // }
+
+      // if (cycles_to_failure[cell_index] <= 1000.0)
+      //   cycles_to_failure[cell_index] = 1000.0;
+      // else if (cycles_to_failure[cell_index] > 1.0e8)
+      //   cycles_to_failure[cell_index] = 1.0e8;
         
     }
+
+    percentage_trace_failure = damaged_trace / trace_length;
   }
 
 
@@ -385,6 +399,8 @@ namespace compressed_strip
     double phi_substrate = 0.5;
     double phi_electrode = 1.0;
 
+    trace_length = 0.0;
+
     // double phi_min = 1.0;
     // double phi_substrate = 1.0;
     // double phi_electrode = 1.0;
@@ -398,25 +414,28 @@ namespace compressed_strip
 
       phi[cell0_index] = phi_substrate;
 
-      if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
-        phi[cell0_index] = phi_substrate;
-      else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
-        phi[cell0_index] = phi_electrode;
-      else
-        phi[cell0_index] = phi_min;
+      // if (current_cell_center[2] < domain_dimensions[2] - cu_thiccness)
+      //   phi[cell0_index] = phi_substrate;
+      // else if (current_cell_center[1] > domain_dimensions[1]/2.0 - domain_dimensions[1]/8.0 && current_cell_center[1] < domain_dimensions[1]/2.0 + domain_dimensions[1]/8.0)
+      //   phi[cell0_index] = phi_electrode;
+      // else
+      //   phi[cell0_index] = phi_min;
 
       // sinusoidal copper film
-      // if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
-      // {
-      //   phi[cell0_index] = phi_min;
-      //   // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
-      //   // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
-      //   double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
-      //   double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
+      if (current_cell_center[2] > domain_dimensions[2] - cu_thiccness)
+      {
+        phi[cell0_index] = phi_min;
+        // double y_max = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + domain_dimensions[1]/8.0;
+        // double y_min = domain_dimensions[1]/2.0 + sin(2.0 * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - domain_dimensions[1]/8.0;
+        double y_max = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 + cu_width;
+        double y_min = domain_dimensions[1]/2.0 + sin(w_freq * current_cell_center[0] * 2.0 * PI/(domain_dimensions[0]))*domain_dimensions[1]/6.0 - cu_width;
         
-      //   if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
-      //     phi[cell0_index] = phi_electrode;
-      // }
+        if (current_cell_center[1] > y_min && current_cell_center[1] < y_max)
+        {
+          phi[cell0_index] = phi_electrode;
+          trace_length += 1.0;
+        }
+      }
 
       // serpentine - not exactly, but close to serpentine.
       
@@ -548,7 +567,8 @@ namespace compressed_strip
 										{1});
 
     // double radius_of_cylinder = 7.0e-3;
-    double radius_of_cylinder = 100.0e-2/PI;
+    // double radius_of_cylinder = 100.0e-2/PI;
+    double radius_of_cylinder = 100.0e-3/PI;
     double theta = domain_dimensions[0]/radius_of_cylinder;;
     
     double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
@@ -594,12 +614,12 @@ namespace compressed_strip
 		{
 
       if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
-			  std::cout << "time step " << timestep_number << " at t= " << current_time <<", objective = " << objective;
+			  std::cout << "time step " << timestep_number << " at t= " << current_time <<", objective = " << objective ;
 
 			double last_residual_norm = std::numeric_limits<double>::max();
 			counter = 1;
 
-			while ((last_residual_norm > 1.0e-7) && (counter < 15))
+			while ((last_residual_norm > newton_tol) && (counter < newton_maxIter))
 			{ // start newton
 				
         if (counter == 1)
@@ -631,14 +651,14 @@ namespace compressed_strip
 			if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
 			{
         // computing fatigue based objective
-        // compute_fatigue_data();
+        compute_fatigue_data();
         // objective = 0.0;
         // compute_objective();
 
-        if (counter >= 13)
-          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << "  XXXXXXXXXXXXXXXXXXX WATCH OUT FOR NR CONVERGENCE XXXXXXXXXXX" << std::endl;  
+        if (counter >= 30)
+          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << ", trace fail : " << percentage_trace_failure << "  XXXXXXXXXXXXXXXXXXX WATCH OUT FOR NR CONVERGENCE XXXXXXXXXXX" << std::endl;  
         else
-          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << std::endl;
+          std::cout << " Iteration : " << counter << "  Residual : " << last_residual_norm << ", trace fail : " << percentage_trace_failure << std::endl;
 				output_results((timestep_number));
 			}
 		}
