@@ -393,7 +393,7 @@ namespace compressed_strip
     cu_thiccness = 50.0e-6;
     // cu_thiccness = domain_dimensions[2]/5.0;
     cu_width = 3000.0e-6;
-    double w_freq = 5.0;
+    double w_freq = 0.0;
 
     double phi_min = 0.01;
     double phi_substrate = 0.5;
@@ -566,12 +566,12 @@ namespace compressed_strip
 										selected_dofs_x,
 										{1});
 
-    // double radius_of_cylinder = 7.0e-3;
+    double radius_of_cylinder = 7.0e-3;
     // double radius_of_cylinder = 100.0e-2/PI;
-    double radius_of_cylinder = 100.0e-3/PI;
+    // double radius_of_cylinder = 100.0e-3/PI;
     double theta = domain_dimensions[0]/radius_of_cylinder;;
     
-    double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
+    // double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
     double uz_final = radius_of_cylinder * (1 - cos(theta));
 		// // printf current_time, and velocity_qs
 
@@ -953,7 +953,7 @@ namespace compressed_strip
 
   void ElasticProblem::solve()
   {
-    if (dof_handler.n_dofs() < 15000)
+    if (dof_handler.n_dofs() < 10000)
 		{
 			SparseDirectUMFPACK A_direct;
 			A_direct.initialize(system_matrix);
