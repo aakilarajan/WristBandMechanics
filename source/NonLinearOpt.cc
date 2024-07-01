@@ -393,7 +393,7 @@ namespace compressed_strip
     cu_thiccness = 50.0e-6;
     // cu_thiccness = domain_dimensions[2]/5.0;
     cu_width = 3000.0e-6;
-    double w_freq = 0.0;
+    double w_freq = 2.0;
 
     double phi_min = 0.01;
     double phi_substrate = 0.5;
@@ -571,8 +571,10 @@ namespace compressed_strip
     // double radius_of_cylinder = 100.0e-3/PI;
     double theta = domain_dimensions[0]/radius_of_cylinder;;
     
-    // double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
+    double ux_final = domain_dimensions[0] - radius_of_cylinder * sin(theta);
+    // ux_final = ux_final/5.0;
     double uz_final = radius_of_cylinder * (1 - cos(theta));
+    uz_final = uz_final/5.0;    // reducing the displacement for now. just for testing until proper BC are applied. 
 		// // printf current_time, and velocity_qs
 
     if (timestep_number % STEP_OUT == 0 || timestep_number == 1)
@@ -588,7 +590,7 @@ namespace compressed_strip
 
       // if (selected_dofs_x[n])
 			// {
-      //   present_solution[n] = - ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
+      //   present_solution[n] =  ux_final * (current_time - dT) * velocity_qs; // this is the displacement of the end point, which should be 0.5mm from the center of the cylinder (so that it's at rest)
       // }
 		}
 
